@@ -11,6 +11,7 @@ export interface ClarityTeamResult {
   captainName: string;
   division: number;
   players: ClarityPlayerItem[];
+  debugLog?: string[];
 }
 
 export interface CellValue {
@@ -19,7 +20,7 @@ export interface CellValue {
 }
 
 /**
- * Normalizes string for fuzzy / cross-sheet matching (lowercase, removes all non-alphanumeric).
+ * Normalizes string for fuzzy / cross-sheet matching.
  */
 export function normalizeName(str: string): string {
   if (!str) return '';
@@ -103,7 +104,7 @@ interface GVizResponse {
 }
 
 /**
- * Fetches Google Sheet tab data using Google Visualization API JSON (guaranteed CORS support).
+ * Fetches Google Sheet tab data using Google Visualization API JSON.
  */
 export async function fetchGVizJsonGrid(
   spreadsheetId: string,
@@ -118,13 +119,13 @@ export async function fetchGVizJsonGrid(
 
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: Unable to fetch sheet. Check sheet sharing settings.`);
+    throw new Error(`HTTP ${response.status}: Unable to fetch sheet.`);
   }
 
   const text = await response.text();
   const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]+)\);/);
   if (!match || !match[1]) {
-    throw new Error('Unable to parse sheet response. Ensure sheet is set to "Anyone with the link can view".');
+    throw new Error('Unable to parse sheet response.');
   }
 
   const data: GVizResponse = JSON.parse(match[1]);
@@ -166,14 +167,13 @@ export async function fetchGVizJsonGrid(
 }
 
 /**
- * Generates all candidate tab names for a given division (e.g. "06d _ Division 4", "Division 4", etc.).
+ * Generates all candidate tab names for a given division.
  */
 export function getTabNameCandidates(divisionNumber: number): string[] {
   const divLetters = ['', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
   const letter = divLetters[divisionNumber] || '';
 
   return [
-    // Clarity Season 17 format: "06d _ Division 4"
     `06${letter} _ Division ${divisionNumber}`,
     `06${letter}_Division ${divisionNumber}`,
     `06${letter} - Division ${divisionNumber}`,
@@ -181,7 +181,6 @@ export function getTabNameCandidates(divisionNumber: number): string[] {
     `06${letter} _ Div ${divisionNumber}`,
     `06${letter}_Div ${divisionNumber}`,
     `06${letter} Division ${divisionNumber}`,
-    // Common alternatives
     `Division ${divisionNumber}`,
     `Div ${divisionNumber}`,
     `Division_${divisionNumber}`,
@@ -212,17 +211,23 @@ export async function fetchMasterPlayerMap(
 
   const map = new Map<string, { accountId: string; dotabuffUrl: string; mmr?: number; originalName: string }>();
 
+  // Prioritize raw form submission tabs (which contain raw unformatted Dotabuff URLs)
   const masterTabCandidates = [
-    '05 _ Full Account List',
-    '05_Full Account List',
-    '05 - Full Account List',
+    '03 _ Final Responses',
+    '03_Final Responses',
+    '03 - Final Responses',
+    'Final Responses',
+    '02 _ Checks',
+    '02_Checks',
+    'Checks',
     '04a _ Player List',
     '04a_Player List',
     '04a - Player List',
+    '05 _ Full Account List',
+    '05_Full Account List',
+    '05 - Full Account List',
     '04b _ Player List (MMR Sorted)',
     '04b_Player List (MMR Sorted)',
-    '03 _ Final Responses',
-    '03_Final Responses',
     'Full Account List',
     'Player List',
     'Players',
@@ -234,6 +239,7 @@ export async function fetchMasterPlayerMap(
     try {
       const grid = await fetchGVizJsonGrid(spreadsheetId, { tabName });
       if (grid && grid.length > 1) {
+        console.log(`[Clarity Parser] Scanning master tab: "${tabName}" (${grid.length} rows)`);
         grid.forEach((row) => {
           let foundId: string | null = null;
           let foundUrl = '';
@@ -258,7 +264,7 @@ export async function fetchMasterPlayerMap(
               if (p >= 400 && p <= 16000) mmr = p;
             }
 
-            // 3. Name candidates (any non-header, non-id, non-numeric string)
+            // 3. Name candidates
             const low = cell.text.toLowerCase();
             if (
               !low.includes('dotabuff') &&
@@ -270,6 +276,7 @@ export async function fetchMasterPlayerMap(
               !low.includes('coins') &&
               !low.includes('role') &&
               !low.includes('pos') &&
+              !low.includes('timestamp') &&
               !/^\d+$/.test(cell.text) &&
               cell.text.length >= 2
             ) {
@@ -281,7 +288,7 @@ export async function fetchMasterPlayerMap(
             const primaryName = candidateNames[0];
             candidateNames.forEach((n) => {
               const norm = normalizeName(n);
-              if (norm.length >= 2) {
+              if (norm.length >= 2 && !map.has(norm)) {
                 map.set(norm, {
                   accountId: foundId!,
                   dotabuffUrl: foundUrl,
@@ -292,16 +299,13 @@ export async function fetchMasterPlayerMap(
             });
           }
         });
-
-        if (map.size >= 5) {
-          break; // Successfully indexed master player list
-        }
       }
     } catch {
       // Continue searching next master tab candidate
     }
   }
 
+  console.log(`[Clarity Parser] Total master player entries indexed: ${map.size}`);
   masterPlayerMapCache = { spreadsheetId, map };
   return map;
 }
@@ -314,6 +318,12 @@ export async function importTeamFromClaritySheet(
   divisionNumber: number,
   captainQuery: string
 ): Promise<ClarityTeamResult> {
+  const debugLog: string[] = [];
+  const log = (msg: string) => {
+    console.log(`[Clarity Import] ${msg}`);
+    debugLog.push(msg);
+  };
+
   const { spreadsheetId, gid } = extractSpreadsheetInfo(spreadsheetUrl);
   if (!spreadsheetId) {
     throw new Error('Invalid Google Sheets URL. Example: https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit');
@@ -325,6 +335,8 @@ export async function importTeamFromClaritySheet(
     throw new Error('Please enter a captain name to locate the team.');
   }
 
+  log(`Searching for Captain: "${captainQuery}" in Division ${divisionNumber}...`);
+
   const tabCandidates = getTabNameCandidates(divisionNumber);
   let sheetGrid: Array<Array<CellValue>> | null = null;
   let usedTabName = '';
@@ -335,8 +347,9 @@ export async function importTeamFromClaritySheet(
     try {
       sheetGrid = await fetchGVizJsonGrid(spreadsheetId, { gid });
       usedTabName = `gid=${gid}`;
+      log(`Loaded tab via URL gid: ${gid}`);
     } catch {
-      // fallback to tab names
+      // fallback
     }
   }
 
@@ -346,6 +359,7 @@ export async function importTeamFromClaritySheet(
       try {
         sheetGrid = await fetchGVizJsonGrid(spreadsheetId, { tabName });
         usedTabName = tabName;
+        log(`Successfully loaded division tab: "${tabName}"`);
         if (sheetGrid && sheetGrid.length > 0) break;
       } catch (e) {
         lastError = e as Error;
@@ -360,8 +374,9 @@ export async function importTeamFromClaritySheet(
     );
   }
 
-  // Pre-fetch master player dictionary for resolving Dotabuff links
+  // Pre-fetch master player dictionary
   const masterPlayerMap = await fetchMasterPlayerMap(spreadsheetId);
+  log(`Master player dictionary indexed: ${masterPlayerMap.size} players`);
 
   // Score candidate locations of the captain name to isolate the 5-player TEAM BLOCK (not the summary table)
   interface TeamMatch {
@@ -383,7 +398,7 @@ export async function importTeamFromClaritySheet(
         (cellText === cleanCaptain ||
           normCell === normCaptain ||
           cellText.includes(cleanCaptain) ||
-          cleanCaptain.includes(cellText) && cellText.length >= 3)
+          (cleanCaptain.includes(cellText) && cellText.length >= 3))
       ) {
         let score = 0;
         const row = sheetGrid[r];
@@ -412,7 +427,7 @@ export async function importTeamFromClaritySheet(
           score += 30;
         }
 
-        // Penalty if this is the summary table on the left (e.g. adjacent cell is a team name string like "Shifting Paradigms")
+        // Penalty if summary table on left
         if (nextCell1.length > 4 && !/^\d+$/.test(nextCell1.replace(/,/g, ''))) {
           score -= 30;
         }
@@ -431,19 +446,20 @@ export async function importTeamFromClaritySheet(
     throw new Error(`Could not locate captain "${captainQuery}" in Division ${divisionNumber} tab (${usedTabName}). Please check spelling.`);
   }
 
-  // Sort candidates by highest score to isolate the true team block
+  // Sort candidates by highest score
   candidates.sort((a, b) => b.score - a.score);
   const bestMatch = candidates[0];
   const captainRow = bestMatch.row;
   const captainCol = bestMatch.col;
   const matchedCaptainName = bestMatch.text || captainQuery;
 
+  log(`Selected team block at Row ${captainRow + 1}, Col ${captainCol + 1} (Score: ${bestMatch.score})`);
+
   // Detect column mapping for this team block (Player Col = Col 0, MMR Col = Col 1, DB Col = Col 2)
   let playerCol = captainCol;
   let mmrCol = captainCol + 1;
   let dbCol = captainCol + 2;
 
-  // Confirm exact columns from header row above (if present)
   if (captainRow > 0) {
     const headerRow = sheetGrid[captainRow - 1];
     for (let c = Math.max(0, captainCol - 2); c <= Math.min(headerRow.length - 1, captainCol + 4); c++) {
@@ -469,7 +485,6 @@ export async function importTeamFromClaritySheet(
     let pName = nameCell.text.trim();
     if (!pName && offset === 0) pName = matchedCaptainName;
 
-    // Stop if we encounter "Average MMR"
     if (pName.toLowerCase().includes('average') || pName.toLowerCase().includes('mmr:')) {
       break;
     }
@@ -495,7 +510,7 @@ export async function importTeamFromClaritySheet(
       }
     }
 
-    // 2. Resolve via master player dictionary by normalized player name
+    // 2. Resolve via master player dictionary
     if (!foundId && pName) {
       const norm = normalizeName(pName);
       const masterInfo = masterPlayerMap.get(norm);
@@ -503,13 +518,15 @@ export async function importTeamFromClaritySheet(
         foundId = masterInfo.accountId;
         foundUrl = masterInfo.dotabuffUrl;
         if (!mmrNum && masterInfo.mmr) mmrNum = masterInfo.mmr;
+        log(`Resolved "${pName}" -> ID ${foundId}`);
       } else {
         // Fuzzy search across master player dictionary
         for (const [key, val] of masterPlayerMap.entries()) {
-          if (key === norm || key.includes(norm) || norm.includes(key)) {
+          if (key === norm || (key.length >= 3 && (key.includes(norm) || norm.includes(key)))) {
             foundId = val.accountId;
             foundUrl = val.dotabuffUrl;
             if (!mmrNum && val.mmr) mmrNum = val.mmr;
+            log(`Fuzzy matched "${pName}" to "${val.originalName}" -> ID ${foundId}`);
             break;
           }
         }
@@ -518,6 +535,10 @@ export async function importTeamFromClaritySheet(
 
     if (foundId && !foundUrl.startsWith('http')) {
       foundUrl = `https://www.dotabuff.com/players/${foundId}`;
+    }
+
+    if (!foundId) {
+      log(`Could not find Dotabuff ID for "${pName}" in master tabs`);
     }
 
     discoveredPlayers.push({
@@ -547,5 +568,6 @@ export async function importTeamFromClaritySheet(
     captainName: matchedCaptainName,
     division: divisionNumber,
     players: discoveredPlayers,
+    debugLog,
   };
 }

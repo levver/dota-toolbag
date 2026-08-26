@@ -61,6 +61,14 @@ export const ClarityImportModal: React.FC<ClarityImportModalProps> = ({
     setAssignedPlayers(updated);
   };
 
+  const handleManualIdChange = (playerIndex: number, val: string) => {
+    const updated = [...assignedPlayers];
+    const trimmed = val.trim();
+    updated[playerIndex].accountId = trimmed || null;
+    updated[playerIndex].dotabuffUrl = trimmed.startsWith('http') ? trimmed : (trimmed ? `https://www.dotabuff.com/players/${trimmed}` : '');
+    setAssignedPlayers(updated);
+  };
+
   const handleApply = () => {
     // Sort players by position (1 to 5)
     const sorted = [...assignedPlayers].sort((a, b) => a.assignedPosition - b.assignedPosition);
@@ -149,7 +157,7 @@ export const ClarityImportModal: React.FC<ClarityImportModalProps> = ({
                   required
                   value={captainName}
                   onChange={(e) => setCaptainName(e.target.value)}
-                  placeholder="e.g. Lev"
+                  placeholder="e.g. Tanaka, levver, Notre Daan..."
                   className="w-full px-3 py-2 bg-canvas-subtle border border-canvas-border rounded-bespoke text-canvas-text text-xs focus:outline-none focus:border-palette-red transition"
                 />
               </div>
@@ -166,7 +174,7 @@ export const ClarityImportModal: React.FC<ClarityImportModalProps> = ({
                 className="btn-bespoke btn-red w-full font-medium text-xs py-2.5 px-4 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {isLoading ? (
-                  <span>Fetching Sheet & Parsing Team...</span>
+                  <span>Fetching Sheet & Parsing Lineup...</span>
                 ) : (
                   <>
                     <span>Locate Team & Extract Lineup</span>
@@ -196,7 +204,7 @@ export const ClarityImportModal: React.FC<ClarityImportModalProps> = ({
               </div>
 
               <div className="text-[11px] text-canvas-muted leading-tight">
-                Assign each player to their intended lineup position (Pos 1–5):
+                Assign each player to their lineup position (Pos 1–5):
               </div>
 
               <div className="space-y-2.5">
@@ -206,7 +214,7 @@ export const ClarityImportModal: React.FC<ClarityImportModalProps> = ({
                     className="flex items-center justify-between gap-3 p-2.5 bg-canvas-subtle rounded-bespoke border border-canvas-border text-xs"
                   >
                     {/* Position Selector */}
-                    <div className="flex items-center space-x-2.5 min-w-0">
+                    <div className="flex items-center space-x-2.5 min-w-0 flex-1 pr-2">
                       <select
                         value={player.assignedPosition}
                         onChange={(e) => handlePositionChange(idx, parseInt(e.target.value, 10))}
@@ -219,8 +227,8 @@ export const ClarityImportModal: React.FC<ClarityImportModalProps> = ({
                         ))}
                       </select>
 
-                      {/* Player Info (Name and Link indicator) */}
-                      <div className="min-w-0">
+                      {/* Player Info */}
+                      <div className="min-w-0 flex-1">
                         <div className="font-semibold text-canvas-text truncate flex items-center gap-1.5">
                           <span>{player.name}</span>
                           {idx === 0 && (
@@ -246,7 +254,12 @@ export const ClarityImportModal: React.FC<ClarityImportModalProps> = ({
                               )}
                             </>
                           ) : (
-                            <span className="text-palette-gold-text">No Dotabuff linked</span>
+                            <input
+                              type="text"
+                              placeholder="Paste Dotabuff URL or Account ID"
+                              onChange={(e) => handleManualIdChange(idx, e.target.value)}
+                              className="w-full max-w-[200px] px-1.5 py-0.5 bg-canvas-card border border-palette-gold rounded-bespoke-sm text-[10px] text-canvas-text placeholder-canvas-muted focus:outline-none"
+                            />
                           )}
                         </div>
                       </div>
