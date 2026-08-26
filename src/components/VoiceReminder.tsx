@@ -106,6 +106,12 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
   const [repeatFreq, setRepeatFreq] = useState<number>(60);
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
 
+  // Inline editing state
+  const [editingReminderId, setEditingReminderId] = useState<string | null>(null);
+  const [editingField, setEditingField] = useState<'time' | 'sound' | 'text' | null>(null);
+  const [editTimeValue, setEditTimeValue] = useState('');
+  const [editTextValue, setEditTextValue] = useState('');
+
   const animationFrameRef = useRef<number | null>(null);
   const lastTickTimeRef = useRef<number | null>(null);
   const currentTimeRef = useRef<number>(-30.0);
@@ -333,6 +339,52 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
     } else {
       playBeepSound(type, 0.25);
     }
+  };
+
+  const handleStartEditTime = (r: ReminderEvent) => {
+    setEditingReminderId(r.id);
+    setEditingField('time');
+    setEditTimeValue(formatTimeSimple(r.startTime));
+  };
+
+  const handleSaveEditTime = (id: string) => {
+    const parsed = parseTimeToSeconds(editTimeValue);
+    if (!isNaN(parsed)) {
+      const updated = reminders.map((r) => (r.id === id ? { ...r, startTime: parsed } : r));
+      updated.sort((a, b) => a.startTime - b.startTime);
+      saveRemindersToStorage(updated);
+    }
+    setEditingReminderId(null);
+    setEditingField(null);
+  };
+
+  const handleStartEditText = (r: ReminderEvent) => {
+    setEditingReminderId(r.id);
+    setEditingField('text');
+    setEditTextValue(r.text || '');
+  };
+
+  const handleSaveEditText = (id: string) => {
+    const trimmed = editTextValue.trim();
+    if (trimmed) {
+      const updated = reminders.map((r) => (r.id === id ? { ...r, text: trimmed } : r));
+      saveRemindersToStorage(updated);
+    }
+    setEditingReminderId(null);
+    setEditingField(null);
+  };
+
+  const handleUpdateSoundType = (id: string, newSound: AlertSoundType) => {
+    const updated = reminders.map((r) => (r.id === id ? { ...r, soundType: newSound } : r));
+    saveRemindersToStorage(updated);
+    setEditingReminderId(null);
+    setEditingField(null);
+    handlePreviewSound(newSound);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingReminderId(null);
+    setEditingField(null);
   };
 
   const isPreGame = currentTime < 0;
@@ -587,29 +639,105 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
                       : 'bg-canvas-subtle border-canvas-border text-canvas-text'
                   }`}
                 >
-                  <div className="flex items-center space-x-2.5 min-w-0 pr-2">
-                    <span className="font-mono text-[11px] px-2 py-0.5 rounded-bespoke-sm bg-canvas-card border border-canvas-borderLight text-palette-blue-text flex-shrink-0 font-medium">
-                      {formatTimeSimple(r.startTime)}
-                    </span>
-
-                    {r.soundType !== 'speech' && (
-                      <BeepIcon soundType={r.soundType} />
+                  <div className="flex items-center space-x-2 min-w-0 flex-1 pr-2">
+                    {/* Editable Timing */}
+                    {editingReminderId === r.id && editingField === 'time' ? (
+                      <input
+                        type="text"
+                        autoFocus
+                        value={editTimeValue}
+                        onChange={(e) => setEditTimeValue(e.target.value)}
+                        onBlur={() => handleSaveEditTime(r.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveEditTime(r.id);
+                          if (e.key === 'Escape') handleCancelEdit();
+                        }}
+                        className="font-mono text-[11px] px-1.5 py-0.5 w-16 rounded-bespoke-sm bg-canvas-card border border-palette-blue text-palette-blue-text focus:outline-none flex-shrink-0"
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleStartEditTime(r)}
+                        title="Click to edit timing"
+                        className="font-mono text-[11px] px-2 py-0.5 rounded-bespoke-sm bg-canvas-card border border-canvas-borderLight text-palette-blue-text hover:border-palette-blue flex-shrink-0 font-medium transition cursor-pointer"
+                      >
+                        {formatTimeSimple(r.startTime)}
+                      </button>
                     )}
 
-                    <div className="min-w-0">
-                      {r.soundType === 'speech' ? (
-                        <span className="italic text-canvas-text font-normal truncate block">
-                          "{r.text}"
-                        </span>
+                    {/* Editable Sound Type */}
+                    {editingReminderId === r.id && editingField === 'sound' ? (
+                      <select
+                        autoFocus
+                        value={r.soundType}
+                        onChange={(e) => handleUpdateSoundType(r.id, e.target.value as AlertSoundType)}
+                        onBlur={handleCancelEdit}
+                        className="bg-canvas-card border border-palette-blue rounded-bespoke-sm px-1.5 py-0.5 text-[11px] text-canvas-text focus:outline-none flex-shrink-0"
+                      >
+                        <option value="speech">Voice (TTS)</option>
+                        <option value="double_chime">Double Chime</option>
+                        <option value="single_beep">Single Beep</option>
+                        <option value="high_ping">High Ping</option>
+                        <option value="low_tone">Low Tone</option>
+                        <option value="triple_alert">Triple Beep</option>
+                        <option value="warning_pulse">Warning Pulse</option>
+                      </select>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingReminderId(r.id);
+                          setEditingField('sound');
+                        }}
+                        title="Click to change alert sound"
+                        className="p-1 rounded-bespoke-sm hover:bg-canvas-card border border-transparent hover:border-canvas-border transition flex items-center gap-1 cursor-pointer flex-shrink-0"
+                      >
+                        {r.soundType === 'speech' ? (
+                          <span className="text-[10px] font-mono text-palette-blue-text px-1 py-0.2 rounded-bespoke-sm bg-canvas-card border border-canvas-borderLight">
+                            TTS
+                          </span>
+                        ) : (
+                          <BeepIcon soundType={r.soundType} />
+                        )}
+                      </button>
+                    )}
+
+                    {/* Editable Text */}
+                    <div className="min-w-0 flex-1">
+                      {editingReminderId === r.id && editingField === 'text' ? (
+                        <input
+                          type="text"
+                          autoFocus
+                          value={editTextValue}
+                          onChange={(e) => setEditTextValue(e.target.value)}
+                          onBlur={() => handleSaveEditText(r.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSaveEditText(r.id);
+                            if (e.key === 'Escape') handleCancelEdit();
+                          }}
+                          className="w-full px-2 py-0.5 bg-canvas-card border border-palette-blue rounded-bespoke-sm text-canvas-text text-xs focus:outline-none"
+                        />
                       ) : (
-                        <span className="text-canvas-text font-medium truncate block">
-                          {r.text}
-                        </span>
-                      )}
-                      {r.type === 'repeat' && (
-                        <span className="text-[10px] text-canvas-muted">
-                          {r.repeatCount}× every {r.repeatFrequency}s
-                        </span>
+                        <div
+                          onClick={() => handleStartEditText(r)}
+                          title="Click to edit alert text"
+                          className="cursor-pointer transition group"
+                        >
+                          {r.soundType === 'speech' ? (
+                            <span className="italic text-canvas-text font-normal truncate block group-hover:text-palette-blue-text">
+                              "{r.text}"
+                            </span>
+                          ) : (
+                            <span className="text-canvas-text font-medium truncate block group-hover:text-palette-blue-text">
+                              {r.text}
+                            </span>
+                          )}
+                          {r.type === 'repeat' && (
+                            <span className="text-[10px] text-canvas-muted">
+                              {r.repeatCount}× every {r.repeatFrequency}s
+                            </span>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
