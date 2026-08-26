@@ -315,17 +315,14 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
 
   return (
     <div className="max-w-4xl mx-auto space-y-5 text-canvas-text">
-      {/* Tool Header with Purple Accent */}
+      {/* Tool Header */}
       <div className="flex items-center justify-between pb-2 border-b border-canvas-border">
         <div className="flex items-center space-x-2">
-          <span className="w-2.5 h-2.5 rounded-bespoke-sm bg-palette-purple"></span>
+          <span className="w-2.5 h-2.5 rounded-bespoke-sm bg-palette-blue"></span>
           <h1 className="text-sm font-semibold tracking-tight text-canvas-text uppercase">
             Timed Voice & Sound Reminder
           </h1>
         </div>
-        <span className="text-[11px] font-mono text-palette-purple-text bg-palette-purple-subtle px-2 py-0.5 rounded-bespoke border border-palette-purple-border">
-          Arcane Suite
-        </span>
       </div>
 
       {/* Clock Section */}
@@ -335,7 +332,7 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
             <span className="text-xs font-semibold text-canvas-muted uppercase tracking-wider">
               Match Clock
             </span>
-            <span className="text-[11px] text-palette-purple-text font-mono">
+            <span className="text-[11px] text-palette-blue-text font-mono">
               ({isPreGame ? 'Pre-game' : 'Game time'})
             </span>
           </div>
@@ -343,7 +340,7 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
           <span
             className={`text-xs px-2.5 py-0.5 rounded-bespoke border font-mono ${
               isTimerRunning
-                ? 'bg-palette-purple-subtle text-palette-purple-text border-palette-purple-border'
+                ? 'bg-palette-blue-subtle text-palette-blue-text border-palette-blue-border'
                 : 'bg-canvas-subtle text-canvas-muted border-canvas-border'
             }`}
           >
@@ -355,7 +352,7 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
         <div className="py-4 text-center">
           <div
             className={`font-mono font-bold tracking-wider text-5xl sm:text-6xl tabular-nums select-none ${
-              isPreGame ? 'text-canvas-text' : 'text-palette-purple-text'
+              isPreGame ? 'text-canvas-text' : 'text-palette-blue-text'
             }`}
           >
             {formatTime(currentTime)}
@@ -369,7 +366,7 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
             className={`btn-bespoke px-5 py-2 font-medium text-xs text-white ${
               isTimerRunning
                 ? 'bg-amber-700 hover:bg-amber-600 border border-amber-500'
-                : 'btn-purple'
+                : 'btn-blue'
             }`}
           >
             {isTimerRunning ? 'Pause Clock' : 'Start Match Clock'}
@@ -392,7 +389,7 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
             </button>
             <button
               onClick={handleSetZero}
-              className="btn-bespoke px-2.5 py-0.5 text-xs font-mono text-palette-purple-text font-bold hover:bg-canvas-card"
+              className="btn-bespoke px-2.5 py-0.5 text-xs font-mono text-palette-blue-text font-bold hover:bg-canvas-card"
               title="Set to 00:00"
             >
               00:00
@@ -455,7 +452,7 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
                 value={startTimeInput}
                 onChange={(e) => setStartTimeInput(e.target.value)}
                 required
-                className="w-full px-3 py-2 bg-canvas-subtle border border-canvas-border rounded-bespoke text-canvas-text text-xs focus:outline-none focus:border-palette-purple transition"
+                className="w-full px-3 py-2 bg-canvas-subtle border border-canvas-border rounded-bespoke text-canvas-text text-xs focus:outline-none focus:border-palette-blue transition"
               />
             </div>
 
@@ -467,7 +464,7 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
               <select
                 value={reminderType}
                 onChange={(e) => setReminderType(e.target.value as 'single' | 'repeat')}
-                className="w-full px-3 py-2 bg-canvas-subtle border border-canvas-border rounded-bespoke text-canvas-text text-xs focus:outline-none focus:border-palette-purple transition"
+                className="w-full px-3 py-2 bg-canvas-subtle border border-canvas-border rounded-bespoke text-canvas-text text-xs focus:outline-none focus:border-palette-blue transition"
               >
                 <option value="single">Single Event</option>
                 <option value="repeat">Repeating Event</option>
@@ -483,7 +480,7 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
                 <select
                   value={soundType}
                   onChange={(e) => setSoundType(e.target.value as AlertSoundType)}
-                  className="flex-1 px-3 py-2 bg-canvas-subtle border border-canvas-border rounded-bespoke text-canvas-text text-xs focus:outline-none focus:border-palette-purple transition"
+                  className="flex-1 px-3 py-2 bg-canvas-subtle border border-canvas-border rounded-bespoke text-canvas-text text-xs focus:outline-none focus:border-palette-blue transition"
                 >
                   <optgroup label="Voice">
                     <option value="speech">Read Text (Voice TTS)</option>
@@ -552,7 +549,7 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
               onChange={(e) => setReminderText(e.target.value)}
               placeholder={soundType === 'speech' ? 'e.g. Check power rune' : 'e.g. Camp stack'}
               required={soundType === 'speech'}
-              className="w-full px-3 py-2 bg-canvas-subtle border border-canvas-border rounded-bespoke text-canvas-text text-xs focus:outline-none focus:border-palette-purple transition"
+              className="w-full px-3 py-2 bg-canvas-subtle border border-canvas-border rounded-bespoke text-canvas-text text-xs focus:outline-none focus:border-palette-blue transition"
             />
           </div>
 
@@ -564,7 +561,7 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
 
           <button
             type="submit"
-            className="btn-bespoke btn-purple w-full py-2 font-medium text-xs flex items-center justify-center gap-1.5"
+            className="btn-bespoke btn-blue w-full py-2 font-medium text-xs flex items-center justify-center gap-1.5"
           >
             <span>+ Add Alert</span>
           </button>
@@ -607,14 +604,14 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
                   }`}
                 >
                   <div className="flex items-center space-x-2.5 min-w-0 pr-2">
-                    <span className="font-mono text-[11px] px-2 py-0.5 rounded-bespoke-sm bg-canvas-card border border-canvas-borderLight text-palette-purple-text flex-shrink-0 font-medium">
+                    <span className="font-mono text-[11px] px-2 py-0.5 rounded-bespoke-sm bg-canvas-card border border-canvas-borderLight text-palette-blue-text flex-shrink-0 font-medium">
                       {formatTimeSimple(r.startTime)}
                     </span>
 
                     <span
                       className={`text-[10px] px-1.5 py-0.2 rounded-bespoke-sm border font-mono flex-shrink-0 ${
                         r.soundType === 'speech'
-                          ? 'bg-palette-purple-subtle border-palette-purple-border text-palette-purple-text'
+                          ? 'bg-palette-blue-subtle border-palette-blue-border text-palette-blue-text'
                           : 'bg-canvas-card border-canvas-borderLight text-zinc-300'
                       }`}
                     >
@@ -668,7 +665,7 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
             value={newPresetName}
             onChange={(e) => setNewPresetName(e.target.value)}
             placeholder="Configuration Profile Name"
-            className="flex-1 px-3 py-2 bg-canvas-subtle border border-canvas-border rounded-bespoke text-canvas-text text-xs focus:outline-none focus:border-palette-purple transition"
+            className="flex-1 px-3 py-2 bg-canvas-subtle border border-canvas-border rounded-bespoke text-canvas-text text-xs focus:outline-none focus:border-palette-blue transition"
           />
           <button
             onClick={handleSaveCustomPreset}
@@ -692,7 +689,7 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
                 <div className="flex items-center space-x-1.5 flex-shrink-0">
                   <button
                     onClick={() => handleLoadCustomPreset(name)}
-                    className="btn-bespoke btn-surface text-xs px-2.5 py-1 text-palette-purple-text"
+                    className="btn-bespoke btn-surface text-xs px-2.5 py-1 text-palette-blue-text"
                   >
                     Load
                   </button>

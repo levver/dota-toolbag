@@ -35,7 +35,8 @@ export const HeroStatsPuller: React.FC = () => {
         for (let i = 0; i < 5; i++) {
           const val = params.get(`id${i + 1}`);
           if (val) {
-            initialInputs[i] = val;
+            const cleanId = parseInputForAccountId(val) || val;
+            initialInputs[i] = cleanId;
             hasUrlIds = true;
           }
         }
@@ -70,12 +71,16 @@ export const HeroStatsPuller: React.FC = () => {
     setInputs(newInputs);
   };
 
+  /**
+   * Updates URL query parameters only with stripped, clean numeric account IDs.
+   */
   const updateUrlParams = (currentInputs: string[]) => {
     const params = new URLSearchParams(window.location.search);
     for (let i = 0; i < 5; i++) {
-      const val = currentInputs[i]?.trim();
-      if (val) {
-        params.set(`id${i + 1}`, val);
+      const rawVal = currentInputs[i]?.trim();
+      const cleanId = rawVal ? parseInputForAccountId(rawVal) : null;
+      if (cleanId) {
+        params.set(`id${i + 1}`, cleanId);
       } else {
         params.delete(`id${i + 1}`);
       }
@@ -94,6 +99,7 @@ export const HeroStatsPuller: React.FC = () => {
     setMessage(null);
     setResults([]);
 
+    // Update URL query parameters with stripped numerical IDs only
     updateUrlParams(currentInputs);
 
     const uniqueIds = Array.from(new Set(profileIds));
@@ -132,7 +138,14 @@ export const HeroStatsPuller: React.FC = () => {
       return;
     }
 
-    executeFetch(validIds, heroMap, inputs);
+    // Normalize inputs in UI to clean IDs
+    const normalizedInputs = inputs.map((inp) => {
+      const clean = parseInputForAccountId(inp);
+      return clean ? clean : inp.trim();
+    });
+    setInputs(normalizedInputs);
+
+    executeFetch(validIds, heroMap, normalizedInputs);
   };
 
   const handleClear = () => {
@@ -167,7 +180,7 @@ export const HeroStatsPuller: React.FC = () => {
 
   return (
     <div className="max-w-5xl mx-auto space-y-5 text-canvas-text">
-      {/* Tool Header with Red Accent */}
+      {/* Tool Header */}
       <div className="flex items-center justify-between pb-2 border-b border-canvas-border">
         <div className="flex items-center space-x-2">
           <span className="w-2.5 h-2.5 rounded-bespoke-sm bg-palette-red"></span>
@@ -175,9 +188,6 @@ export const HeroStatsPuller: React.FC = () => {
             Hero Profile Checker
           </h1>
         </div>
-        <span className="text-[11px] font-mono text-palette-red-text bg-palette-red-subtle px-2 py-0.5 rounded-bespoke border border-palette-red-border">
-          Crimson Suite
-        </span>
       </div>
 
       {/* Input Control Box */}

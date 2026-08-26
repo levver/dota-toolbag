@@ -25,7 +25,7 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-canvas-bg text-canvas-text flex flex-col font-sans selection:bg-palette-purple selection:text-white">
+    <div className="min-h-screen bg-canvas-bg text-canvas-text flex flex-col font-sans selection:bg-palette-blue selection:text-white">
       <Navigation
         activeTab={activeTab}
         setActiveTab={handleTabChange}
@@ -46,7 +46,7 @@ export function App() {
       </main>
 
       <footer className="border-t border-canvas-border py-4 text-center text-xs text-canvas-muted">
-        Dota Tools Suite
+        Dota Tools
       </footer>
     </div>
   );

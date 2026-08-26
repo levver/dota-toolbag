@@ -21,7 +21,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             className="flex items-center space-x-2.5 cursor-pointer select-none"
             onClick={() => setActiveTab('stats')}
           >
-            <div className="w-6 h-6 rounded-bespoke bg-gradient-to-br from-palette-red to-palette-purple flex items-center justify-center text-white font-bold text-xs shadow-sm">
+            <div className="w-6 h-6 rounded-bespoke bg-gradient-to-br from-palette-red to-palette-blue flex items-center justify-center text-white font-bold text-xs shadow-sm">
               D
             </div>
             <span className="font-semibold text-sm text-canvas-text tracking-tight">
@@ -29,9 +29,9 @@ export const Navigation: React.FC<NavigationProps> = ({
             </span>
           </div>
 
-          {/* Bespoke Navigation Tabs with distinctive tool hues */}
+          {/* Navigation Tabs with tool hues (1: Red, 2: Blue) */}
           <nav className="flex space-x-1.5 p-1 bg-canvas-card rounded-bespoke-lg border border-canvas-border">
-            {/* Tool 1: Hero Stats (Crimson Red Hue) */}
+            {/* Tool 1: Hero Stats (Red) */}
             <button
               onClick={() => setActiveTab('stats')}
               className={`btn-bespoke px-3.5 py-1.5 text-xs font-medium flex items-center gap-1.5 ${
@@ -48,18 +48,18 @@ export const Navigation: React.FC<NavigationProps> = ({
               <span>Hero Stats</span>
             </button>
 
-            {/* Tool 2: Voice & Sound Reminder (Arcane Purple Hue) */}
+            {/* Tool 2: Voice & Sound Reminder (Blue) */}
             <button
               onClick={() => setActiveTab('reminder')}
               className={`btn-bespoke px-3.5 py-1.5 text-xs font-medium flex items-center gap-1.5 ${
                 activeTab === 'reminder'
-                  ? 'bg-palette-purple-subtle text-palette-purple-text border border-palette-purple-border shadow-sm'
+                  ? 'bg-palette-blue-subtle text-palette-blue-text border border-palette-blue-border shadow-sm'
                   : 'text-canvas-muted hover:text-canvas-text hover:bg-canvas-subtle'
               }`}
             >
               <span
                 className={`w-1.5 h-1.5 rounded-full ${
-                  activeTab === 'reminder' ? 'bg-palette-purple' : 'bg-canvas-border'
+                  activeTab === 'reminder' ? 'bg-palette-blue' : 'bg-canvas-border'
                 }`}
               ></span>
               <span>Timed Reminders</span>
