@@ -1,5 +1,14 @@
 export type ActiveTab = 'stats' | 'reminder';
 
+export type AlertSoundType =
+  | 'speech'
+  | 'double_chime'
+  | 'single_beep'
+  | 'high_ping'
+  | 'low_tone'
+  | 'triple_alert'
+  | 'warning_pulse';
+
 export interface HeroStat {
   name: string;
   iconUrl: string;
@@ -30,11 +39,12 @@ export interface PlayerProfileResult {
 
 export interface ReminderEvent {
   id: string;
-  startTime: number; // in seconds (can be negative like -30)
+  startTime: number; // seconds (can be negative, e.g. -30)
   type: 'single' | 'repeat';
-  text: string;
+  soundType: AlertSoundType;
+  text?: string; // used when soundType === 'speech' or as label
   repeatCount?: number;
-  repeatFrequency?: number; // seconds between repeats
+  repeatFrequency?: number;
   enabled?: boolean;
 }
 

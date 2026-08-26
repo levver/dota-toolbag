@@ -1,26 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ReminderEvent, PresetConfig } from '../types';
+import { ReminderEvent, PresetConfig, AlertSoundType } from '../types';
 import {
-  playChime,
+  playBeepSound,
   speakText,
   formatTime,
   formatTimeSimple,
   parseTimeToSeconds,
-  ensureAudioContext
+  ensureAudioContext,
+  SOUND_PRESETS
 } from '../utils/audio';
-import {
-  Play,
-  Pause,
-  RotateCcw,
-  Plus,
-  Trash2,
-  Bookmark,
-  Volume2,
-  Clock,
-  Check,
-  AlertTriangle,
-  FolderOpen
-} from 'lucide-react';
 
 interface VoiceReminderProps {
   isTimerRunning: boolean;
@@ -29,51 +17,41 @@ interface VoiceReminderProps {
 
 const BUILT_IN_PRESETS: PresetConfig[] = [
   {
-    name: 'Dota 2 Macro Timers',
-    description: 'Bounties, Water Runes, Power Runes, Lotus Pools, Wisdom Runes, Tormentors, and Neutral Items.',
+    name: 'Dota 2 Macro (Voice + Beeps)',
+    description: 'Voice callouts for runes, tormentor, and neutral items; high pings for camp stacks.',
     isBuiltIn: true,
     reminders: [
-      { id: 'bounty_start', startTime: -5, type: 'single', text: 'Bounty runes spawning now!' },
-      { id: 'water_rune_2', startTime: 110, type: 'single', text: 'Water runes in 10 seconds.' },
-      { id: 'bounty_3', startTime: 170, type: 'single', text: 'Lotus pool and bounty runes in 10 seconds.' },
-      { id: 'water_rune_4', startTime: 230, type: 'single', text: 'Water runes in 10 seconds.' },
-      { id: 'power_rune_6', startTime: 350, type: 'single', text: 'Power rune spawning in 10 seconds.' },
-      { id: 'neutrals_t1', startTime: 410, type: 'single', text: 'Tier 1 neutral items available in 10 seconds.' },
-      { id: 'wisdom_rune_7', startTime: 410, type: 'single', text: 'Wisdom runes spawning in 10 seconds.' },
-      { id: 'stacking_sub', startTime: 50, type: 'repeat', repeatCount: 15, repeatFrequency: 60, text: 'Stack camps at 54 seconds.' },
-      { id: 'lotus_repeat', startTime: 170, type: 'repeat', repeatCount: 10, repeatFrequency: 180, text: 'Lotus pool respawning.' },
-      { id: 'power_repeat', startTime: 470, type: 'repeat', repeatCount: 15, repeatFrequency: 120, text: 'Check power rune.' },
-      { id: 'wisdom_repeat', startTime: 830, type: 'repeat', repeatCount: 6, repeatFrequency: 420, text: 'Wisdom rune spawning in 10 seconds.' },
-      { id: 'neutrals_t2', startTime: 1010, type: 'single', text: 'Tier 2 neutral items available in 10 seconds.' },
-      { id: 'tormentor_20', startTime: 1190, type: 'single', text: 'Tormentor spawning in 10 seconds.' },
-      { id: 'neutrals_t3', startTime: 1610, type: 'single', text: 'Tier 3 neutral items available in 10 seconds.' },
-      { id: 'neutrals_t4', startTime: 2210, type: 'single', text: 'Tier 4 neutral items available in 10 seconds.' },
-      { id: 'neutrals_t5', startTime: 3590, type: 'single', text: 'Tier 5 neutral items available now!' }
+      { id: 'bounty_start', startTime: -5, type: 'single', soundType: 'speech', text: 'Bounty runes now' },
+      { id: 'water_rune_2', startTime: 110, type: 'single', soundType: 'speech', text: 'Water rune in 10 seconds' },
+      { id: 'bounty_3', startTime: 170, type: 'single', soundType: 'speech', text: 'Lotus pool and bounty rune' },
+      { id: 'water_rune_4', startTime: 230, type: 'single', soundType: 'speech', text: 'Water rune in 10 seconds' },
+      { id: 'power_rune_6', startTime: 350, type: 'single', soundType: 'speech', text: 'Power rune in 10 seconds' },
+      { id: 'neutrals_t1', startTime: 410, type: 'single', soundType: 'speech', text: 'Tier 1 neutrals available' },
+      { id: 'wisdom_rune_7', startTime: 410, type: 'single', soundType: 'warning_pulse', text: 'Wisdom runes' },
+      { id: 'stacking_sub', startTime: 50, type: 'repeat', soundType: 'high_ping', repeatCount: 15, repeatFrequency: 60, text: 'Stack camp' },
+      { id: 'lotus_repeat', startTime: 170, type: 'repeat', soundType: 'double_chime', repeatCount: 10, repeatFrequency: 180, text: 'Lotus pool' },
+      { id: 'power_repeat', startTime: 470, type: 'repeat', soundType: 'speech', repeatCount: 15, repeatFrequency: 120, text: 'Check power rune' },
+      { id: 'wisdom_repeat', startTime: 830, type: 'repeat', soundType: 'warning_pulse', repeatCount: 6, repeatFrequency: 420, text: 'Wisdom rune in 10 seconds' },
+      { id: 'neutrals_t2', startTime: 1010, type: 'single', soundType: 'speech', text: 'Tier 2 neutrals available' },
+      { id: 'tormentor_20', startTime: 1190, type: 'single', soundType: 'triple_alert', text: 'Tormentor ready at 20 minutes' },
+      { id: 'neutrals_t3', startTime: 1610, type: 'single', soundType: 'speech', text: 'Tier 3 neutrals available' },
+      { id: 'neutrals_t4', startTime: 2210, type: 'single', soundType: 'speech', text: 'Tier 4 neutrals available' },
+      { id: 'neutrals_t5', startTime: 3590, type: 'single', soundType: 'triple_alert', text: 'Tier 5 neutrals available' }
     ]
   },
   {
-    name: 'Mid Lane Rune Timers',
-    description: 'Water runes (2m/4m), Power runes (6m/8m/10m+), and small camp stacking.',
+    name: 'All Beeps & Chimes (No Voice)',
+    description: 'Pure audio cues using chimes, pings, and pulses without text-to-speech reading.',
     isBuiltIn: true,
     reminders: [
-      { id: 'mid_bounty', startTime: -5, type: 'single', text: 'Grab bounty runes.' },
-      { id: 'mid_water_2', startTime: 110, type: 'single', text: 'Water rune in 10 seconds.' },
-      { id: 'mid_lotus_3', startTime: 170, type: 'single', text: 'Lotus pool active.' },
-      { id: 'mid_water_4', startTime: 230, type: 'single', text: 'Water rune in 10 seconds.' },
-      { id: 'mid_power_6', startTime: 350, type: 'single', text: 'Power rune in 10 seconds.' },
-      { id: 'mid_power_repeat', startTime: 470, type: 'repeat', repeatCount: 12, repeatFrequency: 120, text: 'Power rune incoming.' },
-      { id: 'mid_stack', startTime: 50, type: 'repeat', repeatCount: 10, repeatFrequency: 60, text: 'Stack small camp.' }
-    ]
-  },
-  {
-    name: 'Support Stack & Objectives',
-    description: 'Camp stacking cadence at :53, Lotus pool contention, and Wisdom runes.',
-    isBuiltIn: true,
-    reminders: [
-      { id: 'supp_stack_repeat', startTime: 50, type: 'repeat', repeatCount: 15, repeatFrequency: 60, text: 'Stack at 54 seconds.' },
-      { id: 'supp_lotus_repeat', startTime: 170, type: 'repeat', repeatCount: 8, repeatFrequency: 180, text: 'Lotus pool contest.' },
-      { id: 'supp_wisdom_repeat', startTime: 410, type: 'repeat', repeatCount: 6, repeatFrequency: 420, text: 'Wisdom rune alert.' },
-      { id: 'supp_tormentor', startTime: 1190, type: 'single', text: 'Tormentor ready at 20 minutes.' }
+      { id: 'b_start', startTime: -5, type: 'single', soundType: 'double_chime', text: 'Bounties' },
+      { id: 'w_2', startTime: 110, type: 'single', soundType: 'high_ping', text: 'Water Rune 2m' },
+      { id: 'lotus_3', startTime: 170, type: 'single', soundType: 'single_beep', text: 'Lotus 3m' },
+      { id: 'w_4', startTime: 230, type: 'single', soundType: 'high_ping', text: 'Water Rune 4m' },
+      { id: 'p_6', startTime: 350, type: 'single', soundType: 'double_chime', text: 'Power Rune 6m' },
+      { id: 'p_rep', startTime: 470, type: 'repeat', soundType: 'double_chime', repeatCount: 15, repeatFrequency: 120, text: 'Power Runes' },
+      { id: 'stack_rep', startTime: 50, type: 'repeat', soundType: 'high_ping', repeatCount: 20, repeatFrequency: 60, text: 'Stack :53' },
+      { id: 'torm_20', startTime: 1190, type: 'single', soundType: 'warning_pulse', text: 'Tormentor 20m' }
     ]
   }
 ];
@@ -86,17 +64,17 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
   const [reminders, setReminders] = useState<ReminderEvent[]>([]);
   const [customPresets, setCustomPresets] = useState<Record<string, ReminderEvent[]>>({});
   const [newPresetName, setNewPresetName] = useState('');
-  const [testAudioActive, setTestAudioActive] = useState(false);
 
   // Form State
   const [startTimeInput, setStartTimeInput] = useState('-00:30');
   const [reminderType, setReminderType] = useState<'single' | 'repeat'>('single');
+  const [soundType, setSoundType] = useState<AlertSoundType>('speech');
   const [reminderText, setReminderText] = useState('');
   const [repeatCount, setRepeatCount] = useState<number>(5);
   const [repeatFreq, setRepeatFreq] = useState<number>(60);
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
 
-  // Ref tracking for requestAnimationFrame
+  // Animation frame loop refs
   const animationFrameRef = useRef<number | null>(null);
   const lastTickTimeRef = useRef<number | null>(null);
   const currentTimeRef = useRef<number>(-30.0);
@@ -115,7 +93,12 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
       const storedReminders = localStorage.getItem('voice_reminders');
       if (storedReminders) {
         const parsed = JSON.parse(storedReminders);
-        setReminders(parsed);
+        // Normalize any legacy reminders without soundType
+        const normalized = parsed.map((r: ReminderEvent) => ({
+          ...r,
+          soundType: r.soundType || 'speech'
+        }));
+        setReminders(normalized);
       } else {
         setReminders(BUILT_IN_PRESETS[0].reminders);
       }
@@ -148,6 +131,18 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
     return times;
   };
 
+  const triggerAlert = (reminder: ReminderEvent) => {
+    ensureAudioContext();
+    if (reminder.soundType === 'speech') {
+      playBeepSound('double_chime', 0.15);
+      if (reminder.text) {
+        setTimeout(() => speakText(reminder.text || ''), 250);
+      }
+    } else {
+      playBeepSound(reminder.soundType, 0.25);
+    }
+  };
+
   const checkAndTriggerAlerts = (prevTime: number, nextTime: number) => {
     remindersRef.current.forEach((reminder) => {
       if (reminder.enabled === false) return;
@@ -155,8 +150,7 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
 
       triggerTimes.forEach((t) => {
         if (prevTime < t && nextTime >= t) {
-          playChime();
-          setTimeout(() => speakText(reminder.text), 300);
+          triggerAlert(reminder);
         }
       });
     });
@@ -226,20 +220,24 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
     e.preventDefault();
     const startTime = parseTimeToSeconds(startTimeInput);
     if (isNaN(startTime)) {
-      setFeedbackMsg('Invalid start time format. Use -00:30, 02:00, or seconds (e.g. 75).');
+      setFeedbackMsg('Invalid start time format (e.g. -00:30, 02:00, or 75).');
       return;
     }
 
-    if (!reminderText.trim()) {
-      setFeedbackMsg('Please enter reminder text.');
+    if (soundType === 'speech' && !reminderText.trim()) {
+      setFeedbackMsg('Please enter text to read.');
       return;
     }
+
+    const soundOption = SOUND_PRESETS.find((s) => s.id === soundType);
+    const labelText = reminderText.trim() || soundOption?.label || 'Beep Alert';
 
     const newReminder: ReminderEvent = {
-      id: `rem_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      id: `rem_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       startTime,
       type: reminderType,
-      text: reminderText.trim(),
+      soundType,
+      text: labelText,
       enabled: true
     };
 
@@ -304,116 +302,94 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
     localStorage.setItem('voice_reminder_presets', JSON.stringify(updated));
   };
 
-  const handleTestAudio = () => {
-    setTestAudioActive(true);
+  const handlePreviewSound = (type: AlertSoundType, sampleText?: string) => {
     ensureAudioContext();
-    playChime();
-    setTimeout(() => {
-      speakText('Voice reminder sound test active.');
-      setTestAudioActive(false);
-    }, 350);
+    if (type === 'speech') {
+      const textToSpeak = sampleText?.trim() || 'Sample speech alert';
+      playBeepSound('double_chime', 0.15);
+      setTimeout(() => speakText(textToSpeak), 250);
+    } else {
+      playBeepSound(type, 0.25);
+    }
   };
 
   const isPreGame = currentTime < 0;
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-tool-border pb-4">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-100 tracking-tight">
-            Timed Voice Reminder
-          </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Automated audio chimes and voice alerts synced to match timing.
-          </p>
-        </div>
-      </div>
-
-      {/* Main Clock Card */}
-      <div className="bg-tool-card rounded-xl p-6 border border-tool-border shadow-sm space-y-6 text-center">
-        {/* Status Header */}
-        <div className="flex items-center justify-between">
-          <button
-            onClick={handleTestAudio}
-            className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-md border border-slate-700 transition"
-          >
-            <Volume2 className={`w-3.5 h-3.5 ${testAudioActive ? 'text-blue-400 animate-pulse' : 'text-slate-400'}`} />
-            <span>Test Sound</span>
-          </button>
+    <div className="max-w-4xl mx-auto space-y-5 text-zinc-200">
+      {/* Clock Section */}
+      <div className="bg-panel-card rounded border border-panel-border p-5">
+        <div className="flex items-center justify-between pb-3 border-b border-panel-borderSubtle">
+          <div className="flex items-center space-x-2">
+            <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">
+              Match Clock
+            </span>
+            <span className="text-[11px] text-zinc-500 font-mono">
+              ({isPreGame ? 'Pre-game' : 'Game time'})
+            </span>
+          </div>
 
           <span
-            className={`px-2.5 py-0.5 rounded-md text-xs font-medium border ${
+            className={`text-xs px-2 py-0.5 rounded border font-mono ${
               isTimerRunning
-                ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800/50'
-                : 'bg-slate-800 text-slate-400 border-slate-700'
+                ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800/40'
+                : 'bg-zinc-800 text-zinc-400 border-zinc-700'
             }`}
           >
-            {isTimerRunning ? 'Running' : 'Stopped'}
+            {isTimerRunning ? 'Running' : 'Paused'}
           </span>
         </div>
 
-        {/* Digital Clock Display */}
-        <div className="py-2">
+        {/* Digital Clock */}
+        <div className="py-4 text-center">
           <div
-            className={`font-mono font-bold tracking-widest text-6xl sm:text-7xl select-none ${
-              isPreGame ? 'text-slate-100' : 'text-emerald-400'
+            className={`font-mono font-bold tracking-wider text-5xl sm:text-6xl tabular-nums select-none ${
+              isPreGame ? 'text-zinc-100' : 'text-emerald-400'
             }`}
           >
             {formatTime(currentTime)}
           </div>
-          <div className="text-[11px] text-slate-500 font-mono mt-1">
-            {isPreGame ? 'PRE-MATCH' : 'IN-GAME'}
-          </div>
         </div>
 
-        {/* Controls */}
-        <div className="flex flex-wrap items-center justify-center gap-2.5">
+        {/* Control Bar */}
+        <div className="flex flex-wrap items-center justify-center gap-2 pt-2 border-t border-panel-borderSubtle">
           <button
             onClick={isTimerRunning ? handlePause : handleStart}
-            className={`px-5 py-2 rounded-lg font-medium text-xs text-white shadow-sm flex items-center gap-1.5 transition ${
+            className={`px-4 py-1.5 rounded text-xs font-medium text-white transition ${
               isTimerRunning
-                ? 'bg-amber-600 hover:bg-amber-500'
-                : 'bg-blue-600 hover:bg-blue-500'
+                ? 'bg-amber-700 hover:bg-amber-600'
+                : 'bg-zinc-100 text-zinc-900 hover:bg-white'
             }`}
           >
-            {isTimerRunning ? (
-              <>
-                <Pause className="w-3.5 h-3.5" />
-                <span>Pause</span>
-              </>
-            ) : (
-              <>
-                <Play className="w-3.5 h-3.5 fill-current" />
-                <span>Start</span>
-              </>
-            )}
+            {isTimerRunning ? 'Pause' : 'Start'}
           </button>
 
           <button
             onClick={handleReset}
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg border border-slate-700 transition"
+            className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs rounded border border-zinc-700 transition"
           >
-            <RotateCcw className="w-3 h-3 inline mr-1" />
-            Reset
+            Reset (-00:30)
           </button>
 
-          <div className="flex items-center gap-1 bg-tool-bg p-0.5 rounded-lg border border-tool-border">
+          <div className="flex items-center space-x-1 border border-zinc-700 rounded bg-zinc-900 px-1 py-0.5">
             <button
               onClick={() => handleAdjustTime(-10)}
-              className="px-2 py-1 text-[11px] font-mono text-slate-400 hover:text-white rounded transition"
+              className="px-1.5 py-0.5 text-xs font-mono text-zinc-400 hover:text-zinc-100 rounded"
+              title="Subtract 10 seconds"
             >
               -10s
             </button>
             <button
               onClick={handleSetZero}
-              className="px-2.5 py-1 text-[11px] font-mono font-semibold text-blue-400 hover:text-blue-300 rounded transition"
+              className="px-2 py-0.5 text-xs font-mono text-zinc-300 hover:text-white font-medium rounded"
+              title="Set to 00:00"
             >
               00:00
             </button>
             <button
               onClick={() => handleAdjustTime(10)}
-              className="px-2 py-1 text-[11px] font-mono text-slate-400 hover:text-white rounded transition"
+              className="px-1.5 py-0.5 text-xs font-mono text-zinc-400 hover:text-zinc-100 rounded"
+              title="Add 10 seconds"
             >
               +10s
             </button>
@@ -422,77 +398,112 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
       </div>
 
       {/* Preset Packages */}
-      <div className="bg-tool-card rounded-xl p-5 border border-tool-border space-y-3">
-        <div className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-          Presets
+      <div className="bg-panel-card rounded border border-panel-border p-4 space-y-3">
+        <div className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">
+          Preset Timing Packages
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {BUILT_IN_PRESETS.map((preset, idx) => (
             <div
               key={idx}
-              className="bg-tool-bg rounded-lg p-3 border border-tool-borderSubtle flex flex-col justify-between space-y-2"
+              className="bg-panel-subtle rounded p-3 border border-panel-borderSubtle flex flex-col justify-between space-y-2"
             >
-              <div className="space-y-1">
-                <div className="font-semibold text-white text-xs">{preset.name}</div>
-                <p className="text-[11px] text-slate-400 leading-tight">
+              <div>
+                <div className="text-xs font-medium text-zinc-100">{preset.name}</div>
+                <div className="text-[11px] text-zinc-400 mt-0.5 leading-normal">
                   {preset.description}
-                </p>
+                </div>
               </div>
               <button
                 onClick={() => handleLoadBuiltInPreset(preset)}
-                className="w-full py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded border border-slate-700 transition flex items-center justify-center gap-1"
+                className="w-full py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs rounded border border-zinc-700 transition"
               >
-                <FolderOpen className="w-3 h-3" />
-                Load ({preset.reminders.length})
+                Load ({preset.reminders.length} alerts)
               </button>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Add Alert Form */}
-      <div className="bg-tool-card rounded-xl p-5 border border-tool-border space-y-4">
-        <div className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-          Add Reminder
+      {/* Add Reminder Form */}
+      <div className="bg-panel-card rounded border border-panel-border p-4 space-y-3">
+        <div className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">
+          Add Alert
         </div>
 
         <form onSubmit={handleAddReminder} className="space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Start Time */}
             <div>
-              <label className="block text-[11px] font-medium text-slate-400 mb-1">
-                Start Time (MM:SS, -MM:SS, or seconds)
+              <label className="block text-[11px] text-zinc-400 mb-1">
+                Start Time (e.g. -00:30, 02:00, or 75)
               </label>
               <input
                 type="text"
                 value={startTimeInput}
                 onChange={(e) => setStartTimeInput(e.target.value)}
-                placeholder="-00:30, 02:00, or 75"
                 required
-                className="w-full px-3 py-2 bg-tool-bg border border-tool-border rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                className="w-full px-2.5 py-1.5 bg-zinc-900 border border-zinc-700 rounded text-zinc-100 text-xs focus:outline-none focus:border-zinc-500"
               />
             </div>
 
+            {/* Type */}
             <div>
-              <label className="block text-[11px] font-medium text-slate-400 mb-1">
-                Type
+              <label className="block text-[11px] text-zinc-400 mb-1">
+                Schedule Type
               </label>
               <select
                 value={reminderType}
                 onChange={(e) => setReminderType(e.target.value as 'single' | 'repeat')}
-                className="w-full px-3 py-2 bg-tool-bg border border-tool-border rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+                className="w-full px-2.5 py-1.5 bg-zinc-900 border border-zinc-700 rounded text-zinc-100 text-xs focus:outline-none focus:border-zinc-500"
               >
                 <option value="single">Single Event</option>
                 <option value="repeat">Repeating Event</option>
               </select>
             </div>
+
+            {/* Alert Sound Mode: Speech vs Preset Range of Beeps */}
+            <div>
+              <label className="block text-[11px] text-zinc-400 mb-1">
+                Sound Alert Mode
+              </label>
+              <div className="flex gap-1.5">
+                <select
+                  value={soundType}
+                  onChange={(e) => setSoundType(e.target.value as AlertSoundType)}
+                  className="flex-1 px-2.5 py-1.5 bg-zinc-900 border border-zinc-700 rounded text-zinc-100 text-xs focus:outline-none focus:border-zinc-500"
+                >
+                  <optgroup label="Voice">
+                    <option value="speech">Read Text (Voice TTS)</option>
+                  </optgroup>
+                  <optgroup label="Preset Range of Beeps">
+                    <option value="double_chime">Double Chime (Classic)</option>
+                    <option value="single_beep">Single Beep (880Hz)</option>
+                    <option value="high_ping">High Ping (1200Hz)</option>
+                    <option value="low_tone">Low Tone (350Hz)</option>
+                    <option value="triple_alert">Triple Ascending Beep</option>
+                    <option value="warning_pulse">Warning Double Pulse</option>
+                  </optgroup>
+                </select>
+                <button
+                  type="button"
+                  onClick={() => handlePreviewSound(soundType, reminderText)}
+                  className="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[11px] rounded border border-zinc-700"
+                  title="Play sample sound"
+                >
+                  Test
+                </button>
+              </div>
+            </div>
           </div>
 
+          {/* Repeat Options */}
           {reminderType === 'repeat' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-tool-bg rounded-lg border border-tool-borderSubtle">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-2.5 bg-zinc-900/80 rounded border border-zinc-800">
               <div>
-                <label className="block text-[11px] font-medium text-slate-400 mb-1">
-                  Repeat Count
+                <label className="block text-[11px] text-zinc-400 mb-1">
+                  Repeat Count (times)
                 </label>
                 <input
                   type="number"
@@ -500,12 +511,12 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
                   max="100"
                   value={repeatCount}
                   onChange={(e) => setRepeatCount(parseInt(e.target.value, 10))}
-                  className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded text-slate-100 text-xs"
+                  className="w-full px-2 py-1 bg-zinc-900 border border-zinc-700 rounded text-zinc-100 text-xs"
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-medium text-slate-400 mb-1">
-                  Frequency (seconds)
+                <label className="block text-[11px] text-zinc-400 mb-1">
+                  Frequency Interval (seconds)
                 </label>
                 <input
                   type="number"
@@ -513,103 +524,120 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
                   max="3600"
                   value={repeatFreq}
                   onChange={(e) => setRepeatFreq(parseFloat(e.target.value))}
-                  className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded text-slate-100 text-xs"
+                  className="w-full px-2 py-1 bg-zinc-900 border border-zinc-700 rounded text-zinc-100 text-xs"
                 />
               </div>
             </div>
           )}
 
+          {/* Text Input (Voice text or Beep label) */}
           <div>
-            <label className="block text-[11px] font-medium text-slate-400 mb-1">
-              Text to Say
+            <label className="block text-[11px] text-zinc-400 mb-1">
+              {soundType === 'speech' ? 'Text to Read (TTS)' : 'Label / Description (Optional)'}
             </label>
             <input
               type="text"
               value={reminderText}
               onChange={(e) => setReminderText(e.target.value)}
-              placeholder="e.g. Check power rune"
-              required
-              className="w-full px-3 py-2 bg-tool-bg border border-tool-border rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+              placeholder={soundType === 'speech' ? 'e.g. Check power rune' : 'e.g. Stack camp'}
+              required={soundType === 'speech'}
+              className="w-full px-2.5 py-1.5 bg-zinc-900 border border-zinc-700 rounded text-zinc-100 text-xs focus:outline-none focus:border-zinc-500"
             />
           </div>
 
           {feedbackMsg && (
-            <div className="text-xs text-amber-400 flex items-center gap-1.5">
-              <AlertTriangle className="w-3.5 h-3.5" />
-              <span>{feedbackMsg}</span>
+            <div className="text-[11px] text-amber-300">
+              {feedbackMsg}
             </div>
           )}
 
           <button
             type="submit"
-            className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs rounded-lg transition flex items-center justify-center gap-1.5"
+            className="w-full py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium rounded border border-zinc-700 transition"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add Reminder</span>
+            + Add Alert
           </button>
         </form>
       </div>
 
-      {/* Scheduled Alerts List */}
-      <div className="bg-tool-card rounded-xl p-5 border border-tool-border space-y-3">
-        <div className="flex items-center justify-between pb-2 border-b border-tool-borderSubtle">
-          <div className="flex items-center gap-1.5">
-            <Clock className="w-4 h-4 text-slate-400" />
-            <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-              Scheduled Alerts ({reminders.length})
-            </span>
-          </div>
+      {/* Scheduled Reminders List */}
+      <div className="bg-panel-card rounded border border-panel-border p-4 space-y-3">
+        <div className="flex items-center justify-between pb-2 border-b border-panel-borderSubtle">
+          <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">
+            Scheduled Alerts ({reminders.length})
+          </span>
           {reminders.length > 0 && (
             <button
               onClick={handleClearAllReminders}
-              className="text-xs text-slate-400 hover:text-rose-400 transition"
+              className="text-[11px] text-zinc-400 hover:text-red-400 transition"
             >
-              Clear All
+              Clear all
             </button>
           )}
         </div>
 
         {reminders.length === 0 ? (
-          <div className="p-6 text-center text-slate-500 text-xs bg-tool-bg rounded-lg">
-            No reminders scheduled.
+          <div className="py-6 text-center text-zinc-500 text-xs">
+            No scheduled alerts.
           </div>
         ) : (
-          <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+          <div className="space-y-1 max-h-80 overflow-y-auto pr-1">
             {reminders.map((r) => {
               const isPast = currentTime > r.startTime;
+              const soundMeta = SOUND_PRESETS.find((s) => s.id === r.soundType);
 
               return (
                 <div
                   key={r.id}
-                  className={`flex items-center justify-between p-2.5 rounded-lg border text-xs transition ${
+                  className={`flex items-center justify-between p-2 rounded border text-xs transition ${
                     isPast
-                      ? 'bg-tool-bg/40 border-slate-800 text-slate-500'
-                      : 'bg-tool-bg border-tool-borderSubtle text-slate-200'
+                      ? 'bg-zinc-950/40 border-zinc-900 text-zinc-500'
+                      : 'bg-panel-subtle border-panel-borderSubtle text-zinc-200'
                   }`}
                 >
                   <div className="flex items-center space-x-2.5 min-w-0 pr-2">
-                    <span className="font-mono font-semibold px-2 py-0.5 rounded bg-slate-800 text-blue-400 border border-slate-700 flex-shrink-0 text-[11px]">
+                    <span className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-300 flex-shrink-0">
                       {formatTimeSimple(r.startTime)}
                     </span>
+
+                    <span
+                      className={`text-[10px] px-1.5 py-0.2 rounded border font-mono flex-shrink-0 ${
+                        r.soundType === 'speech'
+                          ? 'bg-blue-950/40 border-blue-900/60 text-blue-300'
+                          : 'bg-zinc-800/80 border-zinc-700 text-zinc-300'
+                      }`}
+                    >
+                      {soundMeta ? soundMeta.label.split(' ')[0] : 'Sound'}
+                    </span>
+
                     <div className="min-w-0">
-                      <span className="font-medium truncate block">
+                      <span className="truncate block font-medium">
                         "{r.text}"
                       </span>
-                      <span className="text-[10px] text-slate-500">
-                        {r.type === 'repeat'
-                          ? `Repeat ×${r.repeatCount} (every ${r.repeatFrequency}s)`
-                          : 'Single'}
-                      </span>
+                      {r.type === 'repeat' && (
+                        <span className="text-[10px] text-zinc-500">
+                          {r.repeatCount}× every {r.repeatFrequency}s
+                        </span>
+                      )}
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => handleDeleteReminder(r.id)}
-                    className="p-1 text-slate-400 hover:text-rose-400 transition flex-shrink-0"
-                    title="Delete"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center space-x-1.5 flex-shrink-0">
+                    <button
+                      onClick={() => handlePreviewSound(r.soundType, r.text)}
+                      className="px-1.5 py-0.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 text-[10px] rounded border border-zinc-700"
+                      title="Test alert sound"
+                    >
+                      Play
+                    </button>
+                    <button
+                      onClick={() => handleDeleteReminder(r.id)}
+                      className="px-1.5 py-0.5 text-zinc-500 hover:text-red-400 text-[10px]"
+                      title="Delete reminder"
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -617,11 +645,10 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
         )}
       </div>
 
-      {/* Saved Configurations */}
-      <div className="bg-tool-card rounded-xl p-5 border border-tool-border space-y-3">
-        <div className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-          <Bookmark className="w-3.5 h-3.5 text-slate-400" />
-          <span>Saved Configurations</span>
+      {/* Saved Custom Configurations */}
+      <div className="bg-panel-card rounded border border-panel-border p-4 space-y-3">
+        <div className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">
+          Saved Configurations
         </div>
 
         <div className="flex gap-2">
@@ -629,15 +656,14 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
             type="text"
             value={newPresetName}
             onChange={(e) => setNewPresetName(e.target.value)}
-            placeholder="Configuration Name"
-            className="flex-1 px-3 py-2 bg-tool-bg border border-tool-border rounded-lg text-slate-100 text-xs focus:outline-none focus:border-blue-500"
+            placeholder="Configuration Profile Name"
+            className="flex-1 px-2.5 py-1.5 bg-zinc-900 border border-zinc-700 rounded text-zinc-100 text-xs focus:outline-none focus:border-zinc-500"
           />
           <button
             onClick={handleSaveCustomPreset}
-            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg border border-slate-700 flex items-center gap-1 transition"
+            className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs rounded border border-zinc-700 transition"
           >
-            <Check className="w-3 h-3 text-emerald-400" />
-            <span>Save Current</span>
+            Save Current
           </button>
         </div>
 
@@ -646,25 +672,25 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
             {Object.entries(customPresets).map(([name, items]) => (
               <div
                 key={name}
-                className="flex items-center justify-between p-2.5 bg-tool-bg rounded-lg border border-tool-borderSubtle text-xs"
+                className="flex items-center justify-between p-2 bg-panel-subtle rounded border border-panel-borderSubtle text-xs"
               >
                 <div className="min-w-0 pr-2">
-                  <div className="font-medium text-slate-200 truncate">{name}</div>
-                  <div className="text-[10px] text-slate-500">{items.length} alerts</div>
+                  <div className="font-medium text-zinc-200 truncate">{name}</div>
+                  <div className="text-[10px] text-zinc-500">{items.length} alerts</div>
                 </div>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
+                <div className="flex items-center space-x-1 flex-shrink-0">
                   <button
                     onClick={() => handleLoadCustomPreset(name)}
-                    className="text-xs text-blue-400 hover:text-blue-300 font-medium px-2 py-0.5 rounded bg-slate-800 border border-slate-700"
+                    className="text-xs px-2 py-0.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded border border-zinc-700"
                   >
                     Load
                   </button>
                   <button
                     onClick={() => handleDeleteCustomPreset(name)}
-                    className="text-slate-500 hover:text-rose-400 p-0.5"
-                    title="Delete"
+                    className="text-zinc-500 hover:text-red-400 px-1"
+                    title="Delete preset"
                   >
-                    <Trash2 className="w-3 h-3" />
+                    ×
                   </button>
                 </div>
               </div>

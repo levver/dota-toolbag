@@ -7,22 +7,18 @@ export default {
   theme: {
     extend: {
       colors: {
-        tool: {
-          bg: '#0b0f19',
-          surface: '#131b2e',
-          card: '#162036',
-          hover: '#1c2844',
-          border: '#24324f',
-          borderSubtle: '#1b253b',
-          primary: '#3b82f6',
-          primaryHover: '#2563eb',
-          danger: '#ef4444',
-          dangerHover: '#dc2626'
+        panel: {
+          bg: '#09090b',
+          card: '#18181b',
+          subtle: '#121215',
+          border: '#27272a',
+          borderSubtle: '#1f1f23',
+          hover: '#27272a'
         }
       },
       fontFamily: {
-        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
-        mono: ['"Share Tech Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
+        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
       }
     },
   },

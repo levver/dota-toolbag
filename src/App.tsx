@@ -8,7 +8,6 @@ export function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('stats');
   const [isTimerRunning, setIsTimerRunning] = useState(false);
 
-  // Sync tab from URL on mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const tabParam = params.get('tab');
@@ -26,16 +25,14 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-tool-bg text-slate-100 flex flex-col font-sans">
-      {/* Navigation Header */}
+    <div className="min-h-screen bg-panel-bg text-zinc-100 flex flex-col font-sans">
       <Navigation
         activeTab={activeTab}
         setActiveTab={handleTabChange}
         isTimerRunning={isTimerRunning}
       />
 
-      {/* Main Container */}
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-5">
         <div className={activeTab === 'stats' ? 'block' : 'hidden'}>
           <HeroStatsPuller />
         </div>
@@ -48,12 +45,8 @@ export function App() {
         </div>
       </main>
 
-      {/* Clean Utility Footer */}
-      <footer className="border-t border-tool-border bg-tool-surface/50 py-4 mt-8">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between text-xs text-slate-500">
-          <span>Dota Tools Suite</span>
-          <span className="font-mono">OpenDota & Web Audio</span>
-        </div>
+      <footer className="border-t border-panel-border py-3 text-center text-xs text-zinc-600">
+        Dota Tools
       </footer>
     </div>
   );

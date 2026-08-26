@@ -10,15 +10,6 @@ import {
   POSITIONS,
   HeroInfo
 } from '../utils/openDota';
-import {
-  Search,
-  Copy,
-  Check,
-  RotateCcw,
-  ExternalLink,
-  AlertCircle,
-  Info
-} from 'lucide-react';
 
 export const HeroStatsPuller: React.FC = () => {
   const [inputs, setInputs] = useState<string[]>(['', '', '', '', '']);
@@ -37,7 +28,6 @@ export const HeroStatsPuller: React.FC = () => {
         const map = await fetchHeroMap();
         setHeroMap(map);
 
-        // Check URL search parameters (id1, id2, etc.)
         const params = new URLSearchParams(window.location.search);
         const initialInputs = ['', '', '', '', ''];
         let hasUrlIds = false;
@@ -78,7 +68,6 @@ export const HeroStatsPuller: React.FC = () => {
     const newInputs = [...inputs];
     newInputs[index] = value;
     setInputs(newInputs);
-    // Note: Do NOT update URL here; only update URL when Fetch / submit is pressed!
   };
 
   const updateUrlParams = (currentInputs: string[]) => {
@@ -105,7 +94,7 @@ export const HeroStatsPuller: React.FC = () => {
     setMessage(null);
     setResults([]);
 
-    // Update URL query parameters on fetch press
+    // Update URL query parameters only on fetch press
     updateUrlParams(currentInputs);
 
     const uniqueIds = Array.from(new Set(profileIds));
@@ -116,7 +105,7 @@ export const HeroStatsPuller: React.FC = () => {
 
       setResults(fetchedResults);
       setMessage({
-        text: `Processed ${fetchedResults.length} player profile${fetchedResults.length > 1 ? 's' : ''}.`,
+        text: `Processed ${fetchedResults.length} profile${fetchedResults.length > 1 ? 's' : ''}.`,
         type: 'success'
       });
     } catch (err) {
@@ -170,7 +159,7 @@ export const HeroStatsPuller: React.FC = () => {
       setTimeout(() => setCopied(false), 2000);
     } else {
       setMessage({
-        text: 'Unable to copy text to clipboard automatically. Check console for output.',
+        text: 'Unable to copy text automatically. Output logged to console.',
         type: 'error'
       });
       console.log('--- Summary Text ---\n', summary);
@@ -178,70 +167,47 @@ export const HeroStatsPuller: React.FC = () => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-tool-border pb-4">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-100 tracking-tight">
-            Hero Profile Checker
-          </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Query player hero pools by Account ID or Dotabuff URL across all 5 positions.
-          </p>
-        </div>
-      </div>
-
+    <div className="max-w-5xl mx-auto space-y-5 text-zinc-200">
       {/* Input Control Box */}
-      <div className="bg-tool-card rounded-xl p-5 border border-tool-border shadow-sm space-y-4">
-        <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="bg-panel-card rounded border border-panel-border p-4 space-y-3">
+        <form onSubmit={handleSubmit} className="space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-              Player Slots
+            <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">
+              Player Profiles (1 - 5)
             </span>
             <button
               type="button"
               onClick={handleClear}
-              className="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1 px-2 py-1 rounded bg-slate-800 border border-slate-700 hover:bg-slate-700 transition"
+              className="text-[11px] text-zinc-400 hover:text-zinc-200 px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 transition"
             >
-              <RotateCcw className="w-3 h-3" />
-              Clear All
+              Clear
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-2.5">
             {POSITIONS.map((posLabel, idx) => (
               <div key={idx} className="space-y-1">
-                <label className="text-[11px] font-medium text-slate-400 block truncate">
+                <label className="text-[11px] text-zinc-400 block truncate">
                   {posLabel}
                 </label>
                 <input
                   type="text"
                   value={inputs[idx]}
                   onChange={(e) => handleInputChange(idx, e.target.value)}
-                  placeholder="ID or Dotabuff"
-                  className="w-full bg-tool-bg text-slate-100 placeholder-slate-600 border border-tool-border rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 transition"
+                  placeholder="ID or URL"
+                  className="w-full bg-zinc-900 text-zinc-100 placeholder-zinc-600 border border-zinc-700 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-zinc-500"
                 />
               </div>
             ))}
           </div>
 
-          <div className="pt-1">
+          <div>
             <button
               type="submit"
               disabled={isLoading || heroMapLoading}
-              className="w-full bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-medium text-xs py-2.5 px-4 rounded-lg shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-medium text-xs py-2 px-3 rounded border border-zinc-700 disabled:opacity-50 transition"
             >
-              {isLoading ? (
-                <>
-                  <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  <span>Fetching Profiles...</span>
-                </>
-              ) : (
-                <>
-                  <Search className="w-3.5 h-3.5" />
-                  <span>Get Most Played Heroes</span>
-                </>
-              )}
+              {isLoading ? 'Fetching Data...' : 'Get Most Played Heroes'}
             </button>
           </div>
         </form>
@@ -249,123 +215,98 @@ export const HeroStatsPuller: React.FC = () => {
         {/* Message Alert */}
         {message && (
           <div
-            className={`p-3 rounded-lg text-xs flex items-center gap-2.5 border ${
+            className={`p-2.5 rounded text-xs border ${
               message.type === 'error'
-                ? 'bg-rose-950/40 border-rose-800/60 text-rose-300'
+                ? 'bg-rose-950/40 border-rose-900/60 text-rose-300'
                 : message.type === 'success'
-                ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-300'
-                : 'bg-slate-800/60 border-slate-700 text-slate-300'
+                ? 'bg-emerald-950/40 border-emerald-900/60 text-emerald-300'
+                : 'bg-zinc-900 border-zinc-700 text-zinc-300'
             }`}
           >
-            {message.type === 'error' ? (
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-            ) : (
-              <Info className="w-4 h-4 flex-shrink-0" />
-            )}
-            <span>{message.text}</span>
+            {message.text}
           </div>
         )}
       </div>
 
       {/* Results Section */}
       {results.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between pt-2">
-            <h2 className="text-sm font-semibold text-slate-200 uppercase tracking-wider">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">
               Results ({results.length})
-            </h2>
+            </span>
 
             <button
               onClick={handleCopyClipboard}
-              className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg border border-slate-700 flex items-center gap-1.5 transition"
+              className="px-3 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs rounded border border-zinc-700 transition"
             >
-              {copied ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-emerald-400">Copied to Clipboard!</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Copy All Results to Clipboard</span>
-                </>
-              )}
+              {copied ? 'Copied! ✅' : 'Copy All Results to Clipboard'}
             </button>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             {results.map((player, pIdx) => {
-              const overallSuccess =
-                player.allTime.success || player.monthly.success || player.pro.success;
-
               return (
                 <div
                   key={player.accountId + pIdx}
-                  className={`bg-tool-card rounded-xl p-4 sm:p-5 border ${
-                    overallSuccess ? 'border-tool-border' : 'border-rose-900/60 bg-rose-950/10'
-                  } space-y-4`}
+                  className="bg-panel-card rounded border border-panel-border p-4 space-y-3"
                 >
-                  {/* Player Details Bar */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-tool-borderSubtle">
-                    <div className="flex items-center space-x-3 min-w-0">
+                  {/* Player Summary Header */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-panel-borderSubtle">
+                    <div className="flex items-center space-x-2.5 min-w-0">
                       <img
                         src={player.avatarUrl}
                         alt={player.name}
-                        className="w-9 h-9 rounded-md object-cover border border-slate-700 flex-shrink-0"
+                        className="w-7 h-7 rounded object-cover border border-zinc-700 flex-shrink-0"
                         onError={(e) => {
                           (e.target as HTMLElement).setAttribute(
                             'src',
-                            'https://placehold.co/36x36/1e293b/FFFFFF?text=P'
+                            'https://placehold.co/28x28/27272a/FFFFFF?text=P'
                           );
                         }}
                       />
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-mono font-semibold text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
-                            Slot {pIdx + 1}
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-mono px-1 rounded bg-zinc-800 border border-zinc-700 text-zinc-400">
+                            P{pIdx + 1}
                           </span>
-                          <span className="text-sm font-semibold text-white truncate max-w-[200px] sm:max-w-md">
+                          <span className="text-xs font-semibold text-zinc-100 truncate">
                             {player.name}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
-                          <span>ID: {player.accountId}</span>
-                          <span>•</span>
+                        <div className="text-[11px] text-zinc-500">
+                          ID: {player.accountId} •{' '}
                           <a
                             href={`https://www.dotabuff.com/players/${player.accountId}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-blue-400 hover:text-blue-300 flex items-center gap-0.5"
+                            className="text-zinc-400 hover:text-zinc-200 underline"
                           >
-                            Dotabuff <ExternalLink className="w-2.5 h-2.5" />
+                            Dotabuff
                           </a>
                         </div>
                       </div>
                     </div>
 
                     {/* Rank Badge */}
-                    <div className="flex items-center gap-2 bg-tool-bg px-2.5 py-1.5 rounded-lg border border-tool-borderSubtle">
+                    <div className="flex items-center gap-1.5 bg-zinc-900 px-2 py-1 rounded border border-zinc-800 text-xs">
                       <img
                         src={player.rankUrl.url}
                         alt={player.rankText}
-                        className="w-7 h-7 object-contain"
+                        className="w-6 h-6 object-contain"
                         onError={(e) => {
                           (e.target as HTMLElement).setAttribute(
                             'src',
-                            'https://placehold.co/28x28/334155/FFFFFF?text=R'
+                            'https://placehold.co/24x24/27272a/FFFFFF?text=R'
                           );
                         }}
                       />
-                      <div className="text-right">
-                        <div className="text-[11px] font-medium text-slate-200">
-                          {player.rankText}
-                        </div>
-                      </div>
+                      <span className="text-[11px] text-zinc-300 font-medium">{player.rankText}</span>
                     </div>
                   </div>
 
                   {/* 3 Columns */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <StatColumn title="All-Time Heroes" data={player.allTime} />
                     <StatColumn title="Last Month Heroes" data={player.monthly} />
                     <StatColumn title="Recent Tournament Games" data={player.pro} />
@@ -396,68 +337,66 @@ interface StatColumnProps {
 
 const StatColumn: React.FC<StatColumnProps> = ({ title, data }) => {
   return (
-    <div className="bg-tool-bg rounded-lg p-3 border border-tool-borderSubtle flex flex-col justify-between">
-      <div>
-        <div className="text-xs font-semibold text-slate-300 pb-2 mb-2 border-b border-tool-borderSubtle flex items-center justify-between">
-          <span>{title}</span>
-          {data.success && data.heroes && (
-            <span className="text-[10px] text-slate-500 font-mono">
-              Top {data.heroes.length}
-            </span>
-          )}
-        </div>
-
-        {data.success && data.heroes && data.heroes.length > 0 ? (
-          <ul className="space-y-1.5">
-            {data.heroes.map((hero, index) => {
-              const wrBg = getWinrateColor(hero.winrate);
-
-              return (
-                <li
-                  key={index}
-                  className="flex items-center justify-between py-0.5 text-xs text-slate-300 hover:text-white"
-                >
-                  <div className="flex items-center space-x-2 min-w-0 pr-2">
-                    <span className="text-[11px] font-mono text-slate-500 w-3.5 text-right">
-                      {index + 1}.
-                    </span>
-                    <img
-                      src={hero.iconUrl}
-                      alt={hero.name}
-                      className="w-6 h-6 rounded object-cover border border-slate-700 flex-shrink-0"
-                      onError={(e) => {
-                        (e.target as HTMLElement).setAttribute(
-                          'src',
-                          'https://placehold.co/24x24/334155/FFFFFF?text=?'
-                        );
-                      }}
-                    />
-                    <span className="text-xs truncate font-medium" title={hero.name}>
-                      {hero.name}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <span className="text-[10px] font-mono bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded border border-slate-700">
-                      {hero.games}g
-                    </span>
-                    <span
-                      className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded text-black text-center min-w-[38px]"
-                      style={{ backgroundColor: wrBg }}
-                    >
-                      {hero.winrate}
-                    </span>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <div className="h-28 flex items-center justify-center text-center p-2 text-[11px] text-slate-500">
-            {data.message || 'No data'}
-          </div>
+    <div className="bg-panel-subtle rounded p-2.5 border border-panel-borderSubtle">
+      <div className="text-[11px] font-semibold text-zinc-400 pb-1.5 mb-2 border-b border-panel-borderSubtle flex items-center justify-between">
+        <span>{title}</span>
+        {data.success && data.heroes && (
+          <span className="text-[10px] text-zinc-500 font-mono">
+            {data.heroes.length} heroes
+          </span>
         )}
       </div>
+
+      {data.success && data.heroes && data.heroes.length > 0 ? (
+        <ul className="space-y-1">
+          {data.heroes.map((hero, index) => {
+            const wrBg = getWinrateColor(hero.winrate);
+
+            return (
+              <li
+                key={index}
+                className="flex items-center justify-between text-xs text-zinc-300"
+              >
+                <div className="flex items-center space-x-1.5 min-w-0 pr-1.5">
+                  <span className="text-[10px] font-mono text-zinc-500 w-3 text-right">
+                    {index + 1}
+                  </span>
+                  <img
+                    src={hero.iconUrl}
+                    alt={hero.name}
+                    className="w-5 h-5 rounded object-cover border border-zinc-700 flex-shrink-0"
+                    onError={(e) => {
+                      (e.target as HTMLElement).setAttribute(
+                        'src',
+                        'https://placehold.co/20x20/27272a/FFFFFF?text=?'
+                      );
+                    }}
+                  />
+                  <span className="text-[11px] truncate" title={hero.name}>
+                    {hero.name}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <span className="text-[10px] font-mono text-zinc-400 bg-zinc-900 px-1 rounded border border-zinc-800">
+                    {hero.games}g
+                  </span>
+                  <span
+                    className="text-[10px] font-mono font-semibold px-1 rounded text-black text-center min-w-[34px]"
+                    style={{ backgroundColor: wrBg }}
+                  >
+                    {hero.winrate}
+                  </span>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <div className="h-20 flex items-center justify-center text-center text-[11px] text-zinc-500">
+          {data.message || 'No data'}
+        </div>
+      )}
     </div>
   );
 };

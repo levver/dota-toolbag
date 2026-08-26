@@ -1,6 +1,5 @@
 import React from 'react';
 import { ActiveTab } from '../types';
-import { Users, Timer, Layers } from 'lucide-react';
 
 interface NavigationProps {
   activeTab: ActiveTab;
@@ -14,53 +13,40 @@ export const Navigation: React.FC<NavigationProps> = ({
   isTimerRunning = false
 }) => {
   return (
-    <header className="border-b border-tool-border bg-tool-surface/95 backdrop-blur sticky top-0 z-50">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6">
-        <div className="flex items-center justify-between h-14">
-          {/* Logo & Title */}
-          <div
-            className="flex items-center space-x-2.5 cursor-pointer select-none"
-            onClick={() => setActiveTab('stats')}
-          >
-            <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-blue-400">
-              <Layers className="w-4 h-4" />
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="font-semibold text-sm text-slate-100 tracking-tight">
-                Dota Tools
-              </span>
-              <span className="text-[11px] text-slate-500 font-mono hidden sm:inline">
-                v1.0
-              </span>
-            </div>
+    <header className="border-b border-panel-border bg-panel-bg">
+      <div className="max-w-5xl mx-auto px-4">
+        <div className="flex items-center justify-between h-12">
+          {/* Simple App Title */}
+          <div className="flex items-center space-x-2">
+            <span className="font-semibold text-sm text-zinc-100 tracking-tight">
+              Dota Tools
+            </span>
           </div>
 
-          {/* Clean Segmented Tab Switcher */}
-          <nav className="flex items-center bg-tool-bg p-1 rounded-lg border border-tool-border">
+          {/* Clean Functional Tabs */}
+          <nav className="flex space-x-1">
             <button
               onClick={() => setActiveTab('stats')}
-              className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
                 activeTab === 'stats'
-                  ? 'bg-slate-800 text-white shadow-sm border border-slate-700/60'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                  ? 'bg-zinc-800 text-zinc-100'
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
               }`}
             >
-              <Users className="w-3.5 h-3.5" />
-              <span>Hero Stats</span>
+              Hero Stats
             </button>
 
             <button
               onClick={() => setActiveTab('reminder')}
-              className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-md text-xs font-medium transition-colors relative ${
+              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1.5 ${
                 activeTab === 'reminder'
-                  ? 'bg-slate-800 text-white shadow-sm border border-slate-700/60'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                  ? 'bg-zinc-800 text-zinc-100'
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
               }`}
             >
-              <Timer className="w-3.5 h-3.5" />
-              <span>Voice Reminder</span>
+              <span>Timed Reminders</span>
               {isTimerRunning && (
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-0.5"></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
               )}
             </button>
           </nav>

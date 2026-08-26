@@ -1,7 +1,23 @@
-// Web Audio API & Speech Synthesis Utilities
+import { AlertSoundType } from '../types';
 
 let audioCtx: AudioContext | null = null;
 const activeUtterances: SpeechSynthesisUtterance[] = [];
+
+export interface SoundPresetOption {
+  id: AlertSoundType;
+  label: string;
+  isBeep: boolean;
+}
+
+export const SOUND_PRESETS: SoundPresetOption[] = [
+  { id: 'speech', label: 'Read Text (Voice TTS)', isBeep: false },
+  { id: 'double_chime', label: 'Double Chime (Classic)', isBeep: true },
+  { id: 'single_beep', label: 'Single Beep (880Hz)', isBeep: true },
+  { id: 'high_ping', label: 'High Ping (1200Hz)', isBeep: true },
+  { id: 'low_tone', label: 'Low Tone (350Hz)', isBeep: true },
+  { id: 'triple_alert', label: 'Triple Ascending Beep', isBeep: true },
+  { id: 'warning_pulse', label: 'Warning Double Pulse', isBeep: true },
+];
 
 /**
  * Initializes or resumes the Web Audio context after a user gesture.
@@ -25,33 +41,81 @@ export function ensureAudioContext(): AudioContext | null {
 }
 
 /**
- * Plays a rich double-ping game alert chime.
+ * Plays a tone helper with customizable frequency, duration, start delay, gain, and oscillator type.
  */
-export function playChime(volume: number = 0.2): void {
+function playTone(
+  ctx: AudioContext,
+  freq: number,
+  duration: number,
+  delay: number = 0,
+  volume: number = 0.2,
+  type: OscillatorType = 'sine'
+) {
+  const osc = ctx.createOscillator();
+  const gainNode = ctx.createGain();
+
+  osc.type = type;
+  osc.connect(gainNode);
+  gainNode.connect(ctx.destination);
+
+  const startTime = ctx.currentTime + delay;
+  osc.frequency.setValueAtTime(freq, startTime);
+  gainNode.gain.setValueAtTime(volume, startTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+
+  osc.start(startTime);
+  osc.stop(startTime + duration);
+}
+
+/**
+ * Plays a preset beep sound or synthesized chime.
+ */
+export function playBeepSound(type: AlertSoundType, volume: number = 0.2): void {
   try {
     const ctx = ensureAudioContext();
     if (!ctx) return;
 
-    const playTone = (freq: number, duration: number, delay: number) => {
-      const osc = ctx.createOscillator();
-      const gainNode = ctx.createGain();
-      osc.connect(gainNode);
-      gainNode.connect(ctx.destination);
+    switch (type) {
+      case 'double_chime':
+        // C5 (523.25Hz) -> E5 (659.25Hz)
+        playTone(ctx, 523.25, 0.16, 0, volume, 'sine');
+        playTone(ctx, 659.25, 0.22, 0.12, volume, 'sine');
+        break;
 
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
-      gainNode.gain.setValueAtTime(volume, ctx.currentTime + delay);
-      gainNode.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + delay + duration);
+      case 'single_beep':
+        // Clean single 880Hz beep
+        playTone(ctx, 880, 0.18, 0, volume * 1.1, 'sine');
+        break;
 
-      osc.start(ctx.currentTime + delay);
-      osc.stop(ctx.currentTime + delay + duration);
-    };
+      case 'high_ping':
+        // Crisp high-frequency ping
+        playTone(ctx, 1200, 0.15, 0, volume * 0.9, 'triangle');
+        break;
 
-    // Dota-style double chime: C5 (523.25Hz) -> E5 (659.25Hz)
-    playTone(523.25, 0.18, 0);
-    playTone(659.25, 0.24, 0.12);
+      case 'low_tone':
+        // Low 350Hz alert tone
+        playTone(ctx, 350, 0.25, 0, volume * 1.2, 'sine');
+        break;
+
+      case 'triple_alert':
+        // Three rapid ascending beeps: 700Hz -> 880Hz -> 1050Hz
+        playTone(ctx, 700, 0.09, 0, volume, 'sine');
+        playTone(ctx, 880, 0.09, 0.10, volume, 'sine');
+        playTone(ctx, 1050, 0.14, 0.20, volume, 'sine');
+        break;
+
+      case 'warning_pulse':
+        // Two urgent pings
+        playTone(ctx, 950, 0.11, 0, volume, 'square');
+        playTone(ctx, 950, 0.13, 0.13, volume, 'square');
+        break;
+
+      default:
+        playTone(ctx, 880, 0.15, 0, volume, 'sine');
+        break;
+    }
   } catch (e) {
-    console.error('Audio chime failed:', e);
+    console.error('Audio beep failed:', e);
   }
 }
 
@@ -59,27 +123,27 @@ export function playChime(volume: number = 0.2): void {
  * Speaks text using the browser Speech Synthesis API.
  */
 export function speakText(text: string, rate: number = 1.0, pitch: number = 1.0): void {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-    console.warn('SpeechSynthesis is not supported in this browser.');
+  if (typeof window === 'undefined' || !('speechSynthesis' in window) || !text.trim()) {
     return;
   }
 
   try {
-    // Cancel previous speaking to prevent overlapping
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = rate;
     utterance.pitch = pitch;
 
-    // Pick an English voice if available
     const voices = window.speechSynthesis.getVoices();
-    const englishVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Zira') || v.name.includes('David')));
+    const englishVoice = voices.find(
+      (v) =>
+        v.lang.startsWith('en') &&
+        (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('David') || v.name.includes('Zira'))
+    );
     if (englishVoice) {
       utterance.voice = englishVoice;
     }
 
-    // Keep reference in activeUtterances array to avoid Garbage Collection bugs in Chromium
     activeUtterances.push(utterance);
     utterance.onend = () => {
       const index = activeUtterances.indexOf(utterance);
