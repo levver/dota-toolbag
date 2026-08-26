@@ -10,6 +10,7 @@ import {
   SOUND_PRESETS
 } from '../utils/audio';
 import { ToolLayout } from './ToolLayout';
+import { Volume2 } from 'lucide-react';
 
 interface VoiceReminderProps {
   isTimerRunning: boolean;
@@ -546,7 +547,6 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
           <div className="space-y-1.5 max-h-80 overflow-y-auto pr-1">
             {reminders.map((r) => {
               const isPast = currentTime > r.startTime;
-              const soundMeta = SOUND_PRESETS.find((s) => s.id === r.soundType);
 
               return (
                 <div
@@ -562,20 +562,20 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
                       {formatTimeSimple(r.startTime)}
                     </span>
 
-                    <span
-                      className={`text-[10px] px-1.5 py-0.2 rounded-bespoke-sm border font-mono flex-shrink-0 ${
-                        r.soundType === 'speech'
-                          ? 'bg-palette-blue-subtle border-palette-blue-border text-palette-blue-text'
-                          : 'bg-canvas-card border-canvas-borderLight text-zinc-300'
-                      }`}
-                    >
-                      {soundMeta ? soundMeta.label.split(' ')[0] : 'Sound'}
-                    </span>
+                    {r.soundType !== 'speech' && (
+                      <Volume2 className="w-3.5 h-3.5 text-palette-blue-accent flex-shrink-0" />
+                    )}
 
                     <div className="min-w-0">
-                      <span className="truncate block font-medium">
-                        "{r.text}"
-                      </span>
+                      {r.soundType === 'speech' ? (
+                        <span className="italic text-canvas-text font-normal truncate block">
+                          "{r.text}"
+                        </span>
+                      ) : (
+                        <span className="text-canvas-text font-medium truncate block">
+                          {r.text}
+                        </span>
+                      )}
                       {r.type === 'repeat' && (
                         <span className="text-[10px] text-canvas-muted">
                           {r.repeatCount}× every {r.repeatFrequency}s
