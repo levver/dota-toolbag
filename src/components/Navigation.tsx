@@ -1,17 +1,18 @@
 import React from 'react';
-import { ActiveTab } from '../types';
+import { TOOLS, TOOL_ACCENT_MAP } from '../config/tools';
+import { useTimerContext } from '../context/TimerContext';
 
 interface NavigationProps {
-  activeTab: ActiveTab;
-  setActiveTab: (tab: ActiveTab) => void;
-  isTimerRunning?: boolean;
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
 }
 
 export const Navigation: React.FC<NavigationProps> = ({
   activeTab,
   setActiveTab,
-  isTimerRunning = false
 }) => {
+  const { isTimerRunning } = useTimerContext();
+
   return (
     <header className="border-b border-canvas-border bg-canvas-bg sticky top-0 z-50">
       <div className="max-w-4xl mx-auto px-4 sm:px-6">
@@ -19,7 +20,7 @@ export const Navigation: React.FC<NavigationProps> = ({
           {/* App Brand */}
           <div
             className="flex items-center space-x-2.5 cursor-pointer select-none"
-            onClick={() => setActiveTab('stats')}
+            onClick={() => setActiveTab(TOOLS[0].id)}
           >
             <img
               src="/logo.png"
@@ -31,44 +32,42 @@ export const Navigation: React.FC<NavigationProps> = ({
             </span>
           </div>
 
-          {/* Navigation Tabs with tool hues (1: Red, 2: Blue) */}
+          {/* Dynamic Navigation Tabs from Registry */}
           <nav className="flex space-x-1.5 p-1 bg-canvas-card rounded-bespoke-lg border border-canvas-border">
-            {/* Tool 1: Hero Stats (Red) */}
-            <button
-              onClick={() => setActiveTab('stats')}
-              className={`btn-bespoke px-3.5 py-1.5 text-xs font-medium flex items-center gap-1.5 border transition-colors ${
-                activeTab === 'stats'
-                  ? 'bg-palette-red-subtle text-palette-red-text border-palette-red-border shadow-sm'
-                  : 'text-canvas-muted hover:text-canvas-text hover:bg-canvas-subtle border-transparent'
-              }`}
-            >
-              <span
-                className={`w-1.5 h-1.5 rounded-full ${
-                  activeTab === 'stats' ? 'bg-palette-red' : 'bg-canvas-border'
-                }`}
-              ></span>
-              <span>Hero Stats</span>
-            </button>
+            {TOOLS.map((tool) => {
+              const isActive = activeTab === tool.id;
+              const accent = TOOL_ACCENT_MAP[tool.accentColor];
 
-            {/* Tool 2: Voice & Sound Reminder (Blue) */}
-            <button
-              onClick={() => setActiveTab('reminder')}
-              className={`btn-bespoke px-3.5 py-1.5 text-xs font-medium flex items-center gap-1.5 border transition-colors ${
-                activeTab === 'reminder'
-                  ? 'bg-palette-blue-subtle text-palette-blue-text border-palette-blue-border shadow-sm'
-                  : 'text-canvas-muted hover:text-canvas-text hover:bg-canvas-subtle border-transparent'
-              }`}
-            >
-              <span
-                className={`w-1.5 h-1.5 rounded-full ${
-                  activeTab === 'reminder' ? 'bg-palette-blue' : 'bg-canvas-border'
-                }`}
-              ></span>
-              <span>Timed Reminders</span>
-              {isTimerRunning && (
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse ml-0.5"></span>
-              )}
-            </button>
+              const activeStyle = isActive
+                ? {
+                    backgroundColor: accent.subtle,
+                    borderColor: accent.border,
+                    color: accent.text,
+                  }
+                : undefined;
+
+              return (
+                <button
+                  key={tool.id}
+                  onClick={() => setActiveTab(tool.id)}
+                  style={activeStyle}
+                  className={`btn-bespoke px-3.5 py-1.5 text-xs font-medium flex items-center gap-1.5 border transition-colors ${
+                    isActive
+                      ? 'shadow-sm'
+                      : 'text-canvas-muted hover:text-canvas-text hover:bg-canvas-subtle border-transparent'
+                  }`}
+                >
+                  <span
+                    style={{ backgroundColor: isActive ? accent.solid : undefined }}
+                    className={`w-1.5 h-1.5 rounded-full ${!isActive ? 'bg-canvas-border' : ''}`}
+                  ></span>
+                  <span>{tool.navLabel}</span>
+                  {tool.id === 'reminder' && isTimerRunning && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse ml-0.5"></span>
+                  )}
+                </button>
+              );
+            })}
           </nav>
         </div>
       </div>

@@ -46,6 +46,16 @@
   transform: translateY(1px);
 }
 
+.btn-accent {
+  background-color: var(--tool-accent, #2563eb);
+  border: 1px solid var(--tool-accent-border, #3b82f6);
+  color: #ffffff;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.2), 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+.btn-accent:hover {
+  background-color: var(--tool-accent-hover, #1d4ed8);
+}
+
 .btn-red {
   background-color: #e11d48;
   border: 1px solid #f43f5e;

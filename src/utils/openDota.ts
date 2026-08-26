@@ -1,4 +1,5 @@
 import { HeroStat, HeroStatsSection, PlayerProfileResult } from '../types';
+import { storage } from './storage';
 
 export const OPENDOTA_BASE_URL = 'https://api.opendota.com/api';
 export const HERO_ASSET_BASE_URL = 'https://cdn.steamstatic.com/apps/dota2/images/dota_react/heroes/';
@@ -13,6 +14,37 @@ export interface HeroInfo {
 }
 
 let heroMapCache: Record<number, HeroInfo> | null = null;
+
+/**
+ * Lightweight concurrency limiter for rate-limited OpenDota calls.
+ */
+class RequestQueue {
+  private maxConcurrent: number;
+  private currentRunning = 0;
+  private queue: Array<() => void> = [];
+
+  constructor(maxConcurrent = 4) {
+    this.maxConcurrent = maxConcurrent;
+  }
+
+  async run<T>(fn: () => Promise<T>): Promise<T> {
+    if (this.currentRunning >= this.maxConcurrent) {
+      await new Promise<void>((resolve) => this.queue.push(resolve));
+    }
+    this.currentRunning++;
+    try {
+      return await fn();
+    } finally {
+      this.currentRunning--;
+      if (this.queue.length > 0) {
+        const next = this.queue.shift();
+        if (next) next();
+      }
+    }
+  }
+}
+
+const apiQueue = new RequestQueue(4);
 
 /**
  * Robust clipboard copy function supporting modern API with fallback.
@@ -81,18 +113,11 @@ export async function fetchHeroMap(): Promise<Record<number, HeroInfo>> {
     return heroMapCache;
   }
 
-  // Check localStorage cache
-  try {
-    const local = localStorage.getItem('dota_hero_map_cache');
-    if (local) {
-      const parsed = JSON.parse(local);
-      if (parsed && Object.keys(parsed).length > 100) {
-        heroMapCache = parsed;
-        return parsed;
-      }
-    }
-  } catch (e) {
-    console.warn('Could not read cached hero map:', e);
+  // Check persistent storage
+  const cached = storage.get<Record<number, HeroInfo> | null>('dota_hero_map_cache', null);
+  if (cached && Object.keys(cached).length > 100) {
+    heroMapCache = cached;
+    return cached;
   }
 
   const response = await fetch(`${OPENDOTA_BASE_URL}/heroes`);
@@ -116,12 +141,7 @@ export async function fetchHeroMap(): Promise<Record<number, HeroInfo>> {
   });
 
   heroMapCache = map;
-  try {
-    localStorage.setItem('dota_hero_map_cache', JSON.stringify(map));
-  } catch (e) {
-    // Ignore storage quota errors
-  }
-
+  storage.set('dota_hero_map_cache', map);
   return map;
 }
 
@@ -193,7 +213,7 @@ export function getWinrateColor(wrText: string): string {
 }
 
 /**
- * Fetches hero stats for a single profile with filters.
+ * Fetches hero stats for a single profile with filters, using the concurrency queue.
  */
 export async function fetchHeroStats(
   accountId: string,
@@ -201,57 +221,62 @@ export async function fetchHeroStats(
   days: number | null = null,
   lobbyType: number | null = null
 ): Promise<HeroStatsSection> {
-  let url = `${OPENDOTA_BASE_URL}/players/${accountId}/heroes`;
-  const params: string[] = [];
-  if (days) params.push(`date=${days}`);
-  if (lobbyType) params.push(`lobby_type=${lobbyType}`);
-  if (params.length > 0) url += `?${params.join('&')}`;
+  return apiQueue.run(async () => {
+    let url = `${OPENDOTA_BASE_URL}/players/${accountId}/heroes`;
+    const params: string[] = [];
+    if (days) params.push(`date=${days}`);
+    if (lobbyType) params.push(`lobby_type=${lobbyType}`);
+    if (params.length > 0) url += `?${params.join('&')}`;
 
-  try {
-    const response = await fetch(url);
-    if (response.status === 404) {
-      return { success: false, message: 'Profile not found or match history private.' };
+    try {
+      const response = await fetch(url);
+      if (response.status === 404) {
+        return { success: false, message: 'Profile not found or match history private.' };
+      }
+      if (response.status === 429) {
+        return { success: false, message: 'OpenDota rate limit reached. Please wait a moment.' };
+      }
+      if (!response.ok) {
+        throw new Error(`API returned status ${response.status}`);
+      }
+
+      const data: Array<{ hero_id: string; games: number | string; win: number | string }> = await response.json();
+      const playedHeroes = data.filter((h) => parseInt(String(h.games), 10) > 0);
+
+      if (!Array.isArray(playedHeroes) || playedHeroes.length === 0) {
+        const message = lobbyType === LOBBY_TYPE_PRO
+          ? 'No tournament matches in last 180 days.'
+          : (days ? 'No match data found for this period.' : 'No match data found.');
+        return { success: false, message };
+      }
+
+      const topHeroes: HeroStat[] = playedHeroes.slice(0, TOP_HEROES_COUNT).map((heroStat) => {
+        const heroId = parseInt(heroStat.hero_id, 10);
+        const heroInfo = heroMap[heroId];
+        const games = parseInt(String(heroStat.games), 10);
+        const wins = parseInt(String(heroStat.win), 10);
+
+        const winrate = games > 0 ? `${((wins / games) * 100).toFixed(0)}%` : '0%';
+
+        return {
+          name: heroInfo ? heroInfo.name : `Hero #${heroId}`,
+          iconUrl: heroInfo ? heroInfo.iconUrl : 'https://placehold.co/32x32/334155/FFFFFF?text=?',
+          games,
+          winrate,
+          winCount: wins
+        };
+      });
+
+      return { success: true, heroes: topHeroes };
+    } catch (error: unknown) {
+      const err = error as Error;
+      return { success: false, message: `Error: ${err?.message || 'Unknown'}` };
     }
-    if (!response.ok) {
-      throw new Error(`API returned status ${response.status}`);
-    }
-
-    const data: Array<{ hero_id: string; games: number | string; win: number | string }> = await response.json();
-    const playedHeroes = data.filter((h) => parseInt(String(h.games), 10) > 0);
-
-    if (!Array.isArray(playedHeroes) || playedHeroes.length === 0) {
-      const message = lobbyType === LOBBY_TYPE_PRO
-        ? 'No tournament matches in last 180 days.'
-        : (days ? 'No match data found for this period.' : 'No match data found.');
-      return { success: false, message };
-    }
-
-    const topHeroes: HeroStat[] = playedHeroes.slice(0, TOP_HEROES_COUNT).map((heroStat) => {
-      const heroId = parseInt(heroStat.hero_id, 10);
-      const heroInfo = heroMap[heroId];
-      const games = parseInt(String(heroStat.games), 10);
-      const wins = parseInt(String(heroStat.win), 10);
-
-      const winrate = games > 0 ? `${((wins / games) * 100).toFixed(0)}%` : '0%';
-
-      return {
-        name: heroInfo ? heroInfo.name : `Hero #${heroId}`,
-        iconUrl: heroInfo ? heroInfo.iconUrl : 'https://placehold.co/32x32/334155/FFFFFF?text=?',
-        games,
-        winrate,
-        winCount: wins
-      };
-    });
-
-    return { success: true, heroes: topHeroes };
-  } catch (error: unknown) {
-    const err = error as Error;
-    return { success: false, message: `Error: ${err?.message || 'Unknown'}` };
-  }
+  });
 }
 
 /**
- * Fetches full player profile with retries.
+ * Fetches full player profile with retries and rate limit queue.
  */
 export async function fetchFullPlayerProfile(
   accountId: string,
@@ -266,7 +291,7 @@ export async function fetchFullPlayerProfile(
         fetchHeroStats(accountId, heroMap, null, null),
         fetchHeroStats(accountId, heroMap, 30, null),
         fetchHeroStats(accountId, heroMap, 180, LOBBY_TYPE_PRO),
-        fetch(`${OPENDOTA_BASE_URL}/players/${accountId}`)
+        apiQueue.run(() => fetch(`${OPENDOTA_BASE_URL}/players/${accountId}`))
       ]);
 
       let playerName = `Player ${accountId}`;
