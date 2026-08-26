@@ -262,9 +262,9 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
     }
   };
 
-  const handleLoadBuiltInPreset = (preset: PresetConfig) => {
-    saveRemindersToStorage(preset.reminders);
-    setFeedbackMsg(`Loaded "${preset.name}".`);
+  const handleLoadPresetConfig = (presetReminders: ReminderEvent[], presetName: string) => {
+    saveRemindersToStorage(presetReminders);
+    setFeedbackMsg(`Loaded configuration "${presetName}".`);
     setTimeout(() => setFeedbackMsg(null), 2500);
   };
 
@@ -283,14 +283,6 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
     setCustomPresets(updatedPresets);
     localStorage.setItem('voice_reminder_presets', JSON.stringify(updatedPresets));
     setNewPresetName('');
-  };
-
-  const handleLoadCustomPreset = (name: string) => {
-    if (customPresets[name]) {
-      saveRemindersToStorage(customPresets[name]);
-      setFeedbackMsg(`Loaded "${name}".`);
-      setTimeout(() => setFeedbackMsg(null), 2500);
-    }
   };
 
   const handleDeleteCustomPreset = (name: string) => {
@@ -402,35 +394,6 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
               +10s
             </button>
           </div>
-        </div>
-      </div>
-
-      {/* Preset Packages */}
-      <div className="bg-canvas-card rounded-bespoke-lg border border-canvas-border p-4 sm:p-5 space-y-3">
-        <div className="text-xs font-semibold text-canvas-muted uppercase tracking-wider">
-          Preset Timing Packages
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {BUILT_IN_PRESETS.map((preset, idx) => (
-            <div
-              key={idx}
-              className="bg-canvas-subtle rounded-bespoke p-3 border border-canvas-border flex flex-col justify-between space-y-2.5"
-            >
-              <div>
-                <div className="text-xs font-semibold text-canvas-text">{preset.name}</div>
-                <div className="text-[11px] text-canvas-muted mt-0.5 leading-normal">
-                  {preset.description}
-                </div>
-              </div>
-              <button
-                onClick={() => handleLoadBuiltInPreset(preset)}
-                className="btn-bespoke btn-surface w-full py-1.5 text-xs font-medium"
-              >
-                Load ({preset.reminders.length} alerts)
-              </button>
-            </div>
-          ))}
         </div>
       </div>
 
@@ -653,18 +616,19 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
         )}
       </div>
 
-      {/* Saved Custom Configurations */}
-      <div className="bg-canvas-card rounded-bespoke-lg border border-canvas-border p-4 sm:p-5 space-y-3">
+      {/* Unified Saved Configurations & Presets Section */}
+      <div className="bg-canvas-card rounded-bespoke-lg border border-canvas-border p-4 sm:p-5 space-y-3.5">
         <div className="text-xs font-semibold text-canvas-muted uppercase tracking-wider">
           Saved Configurations
         </div>
 
+        {/* Save Current Reminders Input */}
         <div className="flex gap-2">
           <input
             type="text"
             value={newPresetName}
             onChange={(e) => setNewPresetName(e.target.value)}
-            placeholder="Configuration Profile Name"
+            placeholder="Save Current Schedule as Profile Name..."
             className="flex-1 px-3 py-2 bg-canvas-subtle border border-canvas-border rounded-bespoke text-canvas-text text-xs focus:outline-none focus:border-palette-blue transition"
           />
           <button
@@ -675,36 +639,67 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
           </button>
         </div>
 
-        {Object.keys(customPresets).length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-            {Object.entries(customPresets).map(([name, items]) => (
-              <div
-                key={name}
-                className="flex items-center justify-between p-2.5 bg-canvas-subtle rounded-bespoke border border-canvas-border text-xs"
-              >
-                <div className="min-w-0 pr-2">
-                  <div className="font-medium text-canvas-text truncate">{name}</div>
-                  <div className="text-[10px] text-canvas-muted">{items.length} alerts</div>
+        {/* Configurations List (Built-in Presets + Custom Configurations) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+          {/* Default Built-In Configurations */}
+          {BUILT_IN_PRESETS.map((preset, idx) => (
+            <div
+              key={`builtin_${idx}`}
+              className="flex items-center justify-between p-3 bg-canvas-subtle rounded-bespoke border border-canvas-border text-xs"
+            >
+              <div className="min-w-0 pr-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium text-canvas-text truncate">{preset.name}</span>
+                  <span className="text-[9px] font-mono px-1 py-0.2 rounded-bespoke-sm bg-palette-blue-subtle text-palette-blue-text border border-palette-blue-border">
+                    Default
+                  </span>
                 </div>
-                <div className="flex items-center space-x-1.5 flex-shrink-0">
-                  <button
-                    onClick={() => handleLoadCustomPreset(name)}
-                    className="btn-bespoke btn-surface text-xs px-2.5 py-1 text-palette-blue-text"
-                  >
-                    Load
-                  </button>
-                  <button
-                    onClick={() => handleDeleteCustomPreset(name)}
-                    className="text-canvas-muted hover:text-palette-red px-1"
-                    title="Delete preset"
-                  >
-                    ×
-                  </button>
-                </div>
+                <div className="text-[10px] text-canvas-muted mt-0.5">{preset.reminders.length} alerts • {preset.description}</div>
               </div>
-            ))}
-          </div>
-        )}
+              <div className="flex items-center space-x-1.5 flex-shrink-0">
+                <button
+                  onClick={() => handleLoadPresetConfig(preset.reminders, preset.name)}
+                  className="btn-bespoke btn-surface text-xs px-2.5 py-1 text-palette-blue-text font-medium"
+                >
+                  Load
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {/* User Custom Saved Configurations */}
+          {Object.entries(customPresets).map(([name, items]) => (
+            <div
+              key={`custom_${name}`}
+              className="flex items-center justify-between p-3 bg-canvas-subtle rounded-bespoke border border-canvas-border text-xs"
+            >
+              <div className="min-w-0 pr-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium text-canvas-text truncate">{name}</span>
+                  <span className="text-[9px] font-mono px-1 py-0.2 rounded-bespoke-sm bg-canvas-card text-canvas-muted border border-canvas-border">
+                    Custom
+                  </span>
+                </div>
+                <div className="text-[10px] text-canvas-muted mt-0.5">{items.length} alerts</div>
+              </div>
+              <div className="flex items-center space-x-1.5 flex-shrink-0">
+                <button
+                  onClick={() => handleLoadPresetConfig(items, name)}
+                  className="btn-bespoke btn-surface text-xs px-2.5 py-1 text-palette-blue-text font-medium"
+                >
+                  Load
+                </button>
+                <button
+                  onClick={() => handleDeleteCustomPreset(name)}
+                  className="text-canvas-muted hover:text-palette-red px-1 py-0.5 text-xs"
+                  title="Delete configuration"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

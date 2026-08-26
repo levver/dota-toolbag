@@ -53,7 +53,7 @@ export function parseInputForAccountId(input: string): string | null {
   const trimmed = input.trim();
   if (!trimmed) return null;
 
-  // 1. Dotabuff / OpenDota URL regex: dotabuff.com/players/12345678 or opendota.com/players/12345678
+  // 1. Dotabuff / OpenDota / Steam URL regex: dotabuff.com/players/(\d+) or opendota.com/players/(\d+)
   const urlMatch = trimmed.match(/(?:dotabuff\.com|opendota\.com)\/players\/(\d+)/i);
   if (urlMatch && urlMatch[1]) {
     return urlMatch[1];
@@ -62,6 +62,12 @@ export function parseInputForAccountId(input: string): string | null {
   // 2. Pure digits
   if (/^\d+$/.test(trimmed)) {
     return trimmed;
+  }
+
+  // 3. Fallback: extract any digits sequence from the URL if contains /players/
+  const fallbackMatch = trimmed.match(/players\/(\d+)/i);
+  if (fallbackMatch && fallbackMatch[1]) {
+    return fallbackMatch[1];
   }
 
   return null;
@@ -318,7 +324,7 @@ export async function fetchFullPlayerProfile(
 }
 
 /**
- * Formats all player results into a clean text summary.
+ * Formats all player results into a clean text summary, aligning games played in the middle and winrate on the right.
  */
 export function generateTextSummary(results: PlayerProfileResult[]): string {
   let summary = "--- Dota 2 Hero Stats Summary ---\n\n";
@@ -336,7 +342,11 @@ export function generateTextSummary(results: PlayerProfileResult[]): string {
       summary += `[ ${section.title} ]\n`;
       if (section.data.success && section.data.heroes && section.data.heroes.length > 0) {
         section.data.heroes.forEach((hero, index) => {
-          summary += `${String(index + 1).padStart(2)}. ${hero.name.padEnd(25)} ${String(hero.games).padEnd(5)} games | ${hero.winrate} WR\n`;
+          const numStr = String(index + 1).padStart(2, ' ');
+          const nameStr = hero.name.padEnd(24, ' ');
+          const gamesStr = `${hero.games} games`.padStart(11, ' ').padEnd(14, ' ');
+          const wrStr = `${hero.winrate} WR`.padStart(8, ' ');
+          summary += `  ${numStr}. ${nameStr} | ${gamesStr} | ${wrStr}\n`;
         });
       } else {
         summary += `  ${section.data.message || 'No data'}\n`;

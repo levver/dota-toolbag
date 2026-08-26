@@ -21,11 +21,16 @@ export const Navigation: React.FC<NavigationProps> = ({
             className="flex items-center space-x-2.5 cursor-pointer select-none"
             onClick={() => setActiveTab('stats')}
           >
-            <div className="w-6 h-6 rounded-bespoke bg-gradient-to-br from-palette-red to-palette-blue flex items-center justify-center text-white font-bold text-xs shadow-sm">
-              D
-            </div>
+            <img
+              src="https://liquipedia.net/commons/images/thumb/7/76/Jidi_Pollen_Bag_itemicon_dota2_gameasset.png/60px-Jidi_Pollen_Bag_itemicon_dota2_gameasset.png"
+              alt="levver's toolbag"
+              className="w-6 h-6 rounded-bespoke object-contain"
+              onError={(e) => {
+                (e.target as HTMLElement).style.display = 'none';
+              }}
+            />
             <span className="font-semibold text-sm text-canvas-text tracking-tight">
-              Dota Tools
+              levver's toolbag
             </span>
           </div>
 

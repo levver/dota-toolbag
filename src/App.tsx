@@ -46,7 +46,7 @@ export function App() {
       </main>
 
       <footer className="border-t border-canvas-border py-4 text-center text-xs text-canvas-muted">
-        Dota Tools
+        levver's toolbag
       </footer>
     </div>
   );

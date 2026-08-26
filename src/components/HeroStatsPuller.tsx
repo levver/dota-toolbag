@@ -365,13 +365,8 @@ interface StatColumnProps {
 const StatColumn: React.FC<StatColumnProps> = ({ title, data }) => {
   return (
     <div className="bg-canvas-subtle rounded-bespoke p-3 border border-canvas-border">
-      <div className="text-[11px] font-semibold text-zinc-300 pb-2 mb-2 border-b border-canvas-border flex items-center justify-between">
+      <div className="text-[11px] font-semibold text-zinc-300 pb-2 mb-2 border-b border-canvas-border">
         <span>{title}</span>
-        {data.success && data.heroes && (
-          <span className="text-[10px] text-canvas-muted font-mono">
-            {data.heroes.length} heroes
-          </span>
-        )}
       </div>
 
       {data.success && data.heroes && data.heroes.length > 0 ? (
