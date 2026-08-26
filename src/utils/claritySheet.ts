@@ -13,90 +13,113 @@ export interface ClarityTeamResult {
   players: ClarityPlayerItem[];
 }
 
+export interface CellData {
+  text: string;
+  href?: string;
+}
+
 /**
- * Validates and extracts Spreadsheet ID from Google Sheets URL.
+ * Validates and extracts Spreadsheet ID and optional gid from Google Sheets URL.
  */
-export function extractSpreadsheetId(url: string): string | null {
+export function extractSpreadsheetInfo(url: string): { spreadsheetId: string | null; gid: string | null } {
   const trimmed = url.trim();
-  if (!trimmed) return null;
-  const match = trimmed.match(/docs\.google\.com\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/i);
-  return match && match[1] ? match[1] : null;
-}
+  if (!trimmed) return { spreadsheetId: null, gid: null };
 
-interface GVizCell {
-  v?: string | number | boolean | null;
-  f?: string | null;
-}
+  const idMatch = trimmed.match(/docs\.google\.com\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/i);
+  const gidMatch = trimmed.match(/[?&#]gid=([0-9]+)/i);
 
-interface GVizRow {
-  c: Array<GVizCell | null>;
-}
-
-interface GVizTable {
-  cols: Array<{ id: string; label: string; type: string }>;
-  rows: GVizRow[];
-}
-
-interface GVizResponse {
-  status: string;
-  table?: GVizTable;
-  errors?: Array<{ message: string; detailed_message?: string }>;
+  return {
+    spreadsheetId: idMatch && idMatch[1] ? idMatch[1] : null,
+    gid: gidMatch && gidMatch[1] ? gidMatch[1] : null,
+  };
 }
 
 /**
- * Fetches Google Sheet tab data using Google Visualization API (GViz).
+ * Generates all candidate tab names for a given division (e.g. "06d _ Division 4", "Division 4", etc.).
  */
-export async function fetchGoogleSheetTabData(
+export function getTabNameCandidates(divisionNumber: number): string[] {
+  const divLetters = ['', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+  const letter = divLetters[divisionNumber] || '';
+
+  const candidates = [
+    // Clarity Season 17 format: "06d _ Division 4"
+    `06${letter} _ Division ${divisionNumber}`,
+    `06${letter}_Division ${divisionNumber}`,
+    `06${letter} - Division ${divisionNumber}`,
+    `06${letter}_Division_${divisionNumber}`,
+    `06${letter} _ Div ${divisionNumber}`,
+    `06${letter}_Div ${divisionNumber}`,
+    `06${letter} Division ${divisionNumber}`,
+    // Common alternatives
+    `Division ${divisionNumber}`,
+    `Div ${divisionNumber}`,
+    `Division_${divisionNumber}`,
+    `Div_${divisionNumber}`,
+    `Div${divisionNumber}`,
+    `Division${divisionNumber}`,
+    `D${divisionNumber}`,
+  ];
+
+  return candidates;
+}
+
+/**
+ * Fetches Google Sheet tab data using HTML export to preserve all hyperlink URLs (<a href="...">).
+ */
+export async function fetchGoogleSheetHtmlGrid(
   spreadsheetId: string,
-  tabName: string
-): Promise<Array<Array<string>>> {
-  const encodedTab = encodeURIComponent(tabName);
-  const gvizUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:json&sheet=${encodedTab}`;
+  tabNameOrGid: { tabName?: string; gid?: string }
+): Promise<Array<Array<CellData>>> {
+  let url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:html`;
+  if (tabNameOrGid.tabName) {
+    url += `&sheet=${encodeURIComponent(tabNameOrGid.tabName)}`;
+  } else if (tabNameOrGid.gid) {
+    url += `&gid=${tabNameOrGid.gid}`;
+  }
 
-  const response = await fetch(gvizUrl);
+  const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(`Failed to access Google Sheet (HTTP ${response.status}). Please check sheet sharing permissions.`);
+    throw new Error(`HTTP ${response.status}: Failed to fetch sheet tab.`);
   }
 
-  const text = await response.text();
-
-  // GViz wraps response in: /*O_o*/\ngoogle.visualization.Query.setResponse({...});
-  const jsonMatch = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]+)\);/);
-  if (!jsonMatch || !jsonMatch[1]) {
-    throw new Error('Unable to parse Google Sheet data. Make sure the sheet is public ("Anyone with link can view").');
+  const htmlText = await response.text();
+  if (htmlText.includes('google.visualization.Query.setResponse') && htmlText.includes('"status":"error"')) {
+    throw new Error('Tab not found in sheet.');
   }
 
-  const gvizData: GVizResponse = JSON.parse(jsonMatch[1]);
-  if (gvizData.status === 'error' || !gvizData.table) {
-    const errMsg = gvizData.errors?.[0]?.message || 'Sheet tab not found or private';
-    throw new Error(errMsg);
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(htmlText, 'text/html');
+  const trElements = doc.querySelectorAll('table tr');
+
+  if (!trElements || trElements.length === 0) {
+    throw new Error('No table data found in sheet tab.');
   }
 
-  const rows: Array<Array<string>> = [];
-  gvizData.table.rows.forEach((rowObj) => {
-    if (!rowObj || !rowObj.c) return;
-    const rowValues = rowObj.c.map((cell) => {
-      if (!cell) return '';
-      // formatted value (f) or raw value (v)
-      if (cell.f) return String(cell.f).trim();
-      if (cell.v !== null && cell.v !== undefined) return String(cell.v).trim();
-      return '';
+  const grid: Array<Array<CellData>> = [];
+  trElements.forEach((tr) => {
+    const row: CellData[] = [];
+    const cellElements = tr.querySelectorAll('td, th');
+    cellElements.forEach((td) => {
+      const link = td.querySelector('a');
+      const text = td.textContent?.trim() || '';
+      const href = link?.getAttribute('href') || undefined;
+      row.push({ text, href });
     });
-    rows.push(rowValues);
+    grid.push(row);
   });
 
-  return rows;
+  return grid;
 }
 
 /**
- * Searches for a team by captain name across multiple potential tab variations.
+ * Imports 5-player team from a Clarity League Draft Sheet given URL, Division, and Captain name.
  */
 export async function importTeamFromClaritySheet(
   spreadsheetUrl: string,
   divisionNumber: number,
   captainQuery: string
 ): Promise<ClarityTeamResult> {
-  const spreadsheetId = extractSpreadsheetId(spreadsheetUrl);
+  const { spreadsheetId, gid } = extractSpreadsheetInfo(spreadsheetUrl);
   if (!spreadsheetId) {
     throw new Error('Invalid Google Sheets URL. Example: https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit');
   }
@@ -106,104 +129,143 @@ export async function importTeamFromClaritySheet(
     throw new Error('Please enter a captain name to locate the team.');
   }
 
-  const tabCandidates = [
-    `Division ${divisionNumber}`,
-    `Div ${divisionNumber}`,
-    `Div${divisionNumber}`,
-    `Division_${divisionNumber}`,
-    `Division${divisionNumber}`,
-    `D${divisionNumber}`,
-  ];
-
-  let sheetGrid: Array<Array<string>> | null = null;
+  const tabCandidates = getTabNameCandidates(divisionNumber);
+  let sheetGrid: Array<Array<CellData>> | null = null;
   let usedTabName = '';
   let lastError: Error | null = null;
 
-  for (const tabName of tabCandidates) {
+  // 1. Try URL's gid first if division is unspecified or matches
+  if (gid) {
     try {
-      sheetGrid = await fetchGoogleSheetTabData(spreadsheetId, tabName);
-      usedTabName = tabName;
-      if (sheetGrid && sheetGrid.length > 0) break;
+      sheetGrid = await fetchGoogleSheetHtmlGrid(spreadsheetId, { gid });
+      usedTabName = `gid=${gid}`;
     } catch (e) {
-      lastError = e as Error;
+      // fallback to tab names
+    }
+  }
+
+  // 2. Try candidate tab names
+  if (!sheetGrid || sheetGrid.length === 0) {
+    for (const tabName of tabCandidates) {
+      try {
+        sheetGrid = await fetchGoogleSheetHtmlGrid(spreadsheetId, { tabName });
+        usedTabName = tabName;
+        if (sheetGrid && sheetGrid.length > 0) break;
+      } catch (e) {
+        lastError = e as Error;
+      }
     }
   }
 
   if (!sheetGrid || sheetGrid.length === 0) {
     throw new Error(
       lastError?.message ||
-        `Could not find tab for Division ${divisionNumber}. Checked tab names: ${tabCandidates.join(', ')}`
+        `Could not find tab for Division ${divisionNumber}. Checked tab names: ${tabCandidates.slice(0, 4).join(', ')}... Make sure the sheet is public.`
     );
   }
 
-  // Locate the cell matching the captain's name
-  let captainRow = -1;
-  let captainCol = -1;
-  let matchedCaptainName = captainQuery;
+  // Find all cells containing captain's name
+  interface MatchLocation {
+    row: number;
+    col: number;
+    text: string;
+    isTeamBlock: boolean;
+  }
+
+  const matches: MatchLocation[] = [];
 
   for (let r = 0; r < sheetGrid.length; r++) {
     for (let c = 0; c < sheetGrid[r].length; c++) {
-      const cellVal = sheetGrid[r][c].toLowerCase();
-      if (cellVal.includes(cleanCaptain) || cleanCaptain.includes(cellVal) && cellVal.length > 2) {
-        captainRow = r;
-        captainCol = c;
-        matchedCaptainName = sheetGrid[r][c] || captainQuery;
-        break;
+      const cellText = sheetGrid[r][c].text.toLowerCase();
+      if (cellText && (cellText === cleanCaptain || cellText.includes(cleanCaptain) || cleanCaptain.includes(cellText) && cellText.length >= 3)) {
+        // Check if this row or previous row has headers like "Player" / "MMR" / "Dotabuff" nearby
+        const prevRow = r > 0 ? sheetGrid[r - 1] : [];
+        const isHeaderAbove = prevRow.some((cell) => cell.text.toLowerCase().includes('mmr') || cell.text.toLowerCase().includes('player') || cell.text.toLowerCase().includes('dotabuff'));
+        matches.push({
+          row: r,
+          col: c,
+          text: sheetGrid[r][c].text,
+          isTeamBlock: isHeaderAbove,
+        });
       }
     }
-    if (captainRow !== -1) break;
   }
 
-  if (captainRow === -1) {
-    throw new Error(
-      `Could not locate captain "${captainQuery}" in "${usedTabName}". Please check spelling.`
-    );
+  if (matches.length === 0) {
+    throw new Error(`Could not locate captain "${captainQuery}" in Division ${divisionNumber} tab (${usedTabName}). Please check the spelling.`);
   }
 
-  // Scan surrounding rows and columns for up to 5 players and their Dotabuff URLs / IDs
+  // Prioritize team block matches (where captain is the top player of the 5-player roster)
+  const bestMatch = matches.find((m) => m.isTeamBlock) || matches[0];
+  const captainRow = bestMatch.row;
+  const captainCol = bestMatch.col;
+  const matchedCaptainName = bestMatch.text || captainQuery;
+
+  // Extract up to 5 players starting from the captain row
   const discoveredPlayers: ClarityPlayerItem[] = [];
 
-  // 1. Scan downwards (vertical team layout) for next 10 rows around captainCol
-  for (let r = captainRow; r < Math.min(sheetGrid.length, captainRow + 10); r++) {
+  for (let r = captainRow; r < Math.min(sheetGrid.length, captainRow + 8); r++) {
     const row = sheetGrid[r];
-    // check cells in a window around captainCol (±4 columns)
-    const startCol = Math.max(0, captainCol - 2);
-    const endCol = Math.min(row.length - 1, captainCol + 6);
+    const startCol = Math.max(0, captainCol - 1);
+    const endCol = Math.min(row.length - 1, captainCol + 5);
 
     let playerName = '';
-    let dbLinkOrId = '';
+    let dbLink = '';
+    let foundAccountId: string | null = null;
 
+    // Check cells in player's row window
     for (let c = startCol; c <= endCol; c++) {
-      const val = row[c] || '';
-      if (!val) continue;
+      const cell = row[c];
+      if (!cell) continue;
 
-      const id = parseInputForAccountId(val);
-      if (id) {
-        dbLinkOrId = val;
-      } else if (!playerName && val.length > 1 && !val.toLowerCase().includes('mmr') && !val.toLowerCase().includes('pos') && !val.toLowerCase().includes('role')) {
-        playerName = val;
+      // 1. Check href for Dotabuff / OpenDota URL
+      if (cell.href) {
+        const idFromHref = parseInputForAccountId(cell.href);
+        if (idFromHref) {
+          foundAccountId = idFromHref;
+          dbLink = cell.href;
+        }
+      }
+
+      // 2. Check text for Dotabuff URL or ID
+      if (!foundAccountId && cell.text) {
+        const idFromText = parseInputForAccountId(cell.text);
+        if (idFromText) {
+          foundAccountId = idFromText;
+          dbLink = cell.text;
+        }
+      }
+
+      // 3. Name extraction (first non-numeric, non-header string in player column)
+      if (!playerName && cell.text && !cell.text.toLowerCase().includes('average') && !cell.text.toLowerCase().includes('db link') && !cell.text.toLowerCase().includes('mmr') && !cell.text.toLowerCase().includes('coins')) {
+        // Exclude purely numeric MMR / coins values
+        if (!/^\d+$/.test(cell.text.trim())) {
+          playerName = cell.text.trim();
+        }
       }
     }
 
-    if (dbLinkOrId || playerName) {
-      const parsedId = parseInputForAccountId(dbLinkOrId || playerName);
-      if (parsedId || playerName) {
-        // avoid duplicate entries
-        if (!discoveredPlayers.some((p) => (parsedId && p.accountId === parsedId) || p.name === playerName)) {
-          discoveredPlayers.push({
-            name: playerName || `Player ${discoveredPlayers.length + 1}`,
-            dotabuffUrl: dbLinkOrId || (parsedId ? `https://www.dotabuff.com/players/${parsedId}` : ''),
-            accountId: parsedId,
-            assignedPosition: Math.min(5, discoveredPlayers.length + 1),
-          });
-        }
+    // If we found a player name or link, add to roster
+    if (playerName || foundAccountId) {
+      // Avoid adding "Average MMR" row
+      if (playerName.toLowerCase().includes('average')) {
+        break;
+      }
+
+      if (!discoveredPlayers.some((p) => (foundAccountId && p.accountId === foundAccountId) || (playerName && p.name.toLowerCase() === playerName.toLowerCase()))) {
+        discoveredPlayers.push({
+          name: playerName || (r === captainRow ? matchedCaptainName : `Player ${discoveredPlayers.length + 1}`),
+          dotabuffUrl: dbLink || (foundAccountId ? `https://www.dotabuff.com/players/${foundAccountId}` : ''),
+          accountId: foundAccountId,
+          assignedPosition: Math.min(5, discoveredPlayers.length + 1),
+        });
       }
     }
 
     if (discoveredPlayers.length >= 5) break;
   }
 
-  // Pad to 5 if fewer were found
+  // Fallback pad to 5 players if fewer were detected
   while (discoveredPlayers.length < 5) {
     discoveredPlayers.push({
       name: `Player ${discoveredPlayers.length + 1}`,
