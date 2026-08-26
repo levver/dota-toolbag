@@ -22,8 +22,8 @@ export const TOOLS: ToolDefinition[] = [
   },
   {
     id: 'reminder',
-    title: 'Timed Voice & Sound Reminder',
-    navLabel: 'Timed Reminders',
+    title: 'Timed Voice & Sound Alerts',
+    navLabel: 'Alerts',
     accentColor: 'blue',
     component: VoiceReminder,
   },

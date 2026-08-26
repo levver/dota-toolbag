@@ -19,8 +19,8 @@ const BUILT_IN_PRESETS: PresetConfig[] = [
     ]
   },
   {
-    name: 'Dota 2 Macro',
-    description: 'Voice callouts for runes, tormentor, and neutral items; high pings for camp stacks.',
+    name: 'Macro',
+    description: 'Voice callouts for runes, tormentor, and neutral items; Pings for camp stacks.',
     isBuiltIn: true,
     reminders: [
       { id: 'bounty_start', startTime: -5, type: 'single', soundType: 'speech', text: 'Bounty runes now' },
@@ -35,27 +35,12 @@ const BUILT_IN_PRESETS: PresetConfig[] = [
       { id: 'power_repeat', startTime: 470, type: 'repeat', soundType: 'speech', repeatCount: 15, repeatFrequency: 120, text: 'Check power rune' },
       { id: 'wisdom_repeat', startTime: 830, type: 'repeat', soundType: 'warning_pulse', repeatCount: 6, repeatFrequency: 420, text: 'Wisdom rune in 10 seconds' },
       { id: 'neutrals_t2', startTime: 1010, type: 'single', soundType: 'speech', text: 'Tier 2 neutrals available' },
-      { id: 'tormentor_20', startTime: 1190, type: 'single', soundType: 'triple_alert', text: 'Tormentor ready at 20 minutes' },
+      { id: 'tormentor_20', startTime: 1190, type: 'single', soundType: 'triple_alert', text: 'Tormentor bottom' },
       { id: 'neutrals_t3', startTime: 1610, type: 'single', soundType: 'speech', text: 'Tier 3 neutrals available' },
       { id: 'neutrals_t4', startTime: 2210, type: 'single', soundType: 'speech', text: 'Tier 4 neutrals available' },
       { id: 'neutrals_t5', startTime: 3590, type: 'single', soundType: 'triple_alert', text: 'Tier 5 neutrals available' }
     ]
   },
-  {
-    name: 'All Beeps & Chimes',
-    description: 'Pure audio cues using chimes, pings, and pulses without text-to-speech reading.',
-    isBuiltIn: true,
-    reminders: [
-      { id: 'b_start', startTime: -5, type: 'single', soundType: 'double_chime', text: 'Bounties' },
-      { id: 'w_2', startTime: 110, type: 'single', soundType: 'high_ping', text: 'Water Rune 2m' },
-      { id: 'lotus_3', startTime: 170, type: 'single', soundType: 'single_beep', text: 'Lotus 3m' },
-      { id: 'w_4', startTime: 230, type: 'single', soundType: 'high_ping', text: 'Water Rune 4m' },
-      { id: 'p_6', startTime: 350, type: 'single', soundType: 'double_chime', text: 'Power Rune 6m' },
-      { id: 'p_rep', startTime: 470, type: 'repeat', soundType: 'double_chime', repeatCount: 15, repeatFrequency: 120, text: 'Power Runes' },
-      { id: 'stack_rep', startTime: 50, type: 'repeat', soundType: 'high_ping', repeatCount: 20, repeatFrequency: 60, text: 'Stack :53' },
-      { id: 'torm_20', startTime: 1190, type: 'single', soundType: 'warning_pulse', text: 'Tormentor 20m' }
-    ]
-  }
 ];
 
 interface SavedConfigsProps {

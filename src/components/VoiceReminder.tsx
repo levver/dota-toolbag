@@ -61,12 +61,6 @@ export const VoiceReminder: React.FC = () => {
         onSetZero={setZero}
       />
 
-      {/* Add Alert Form */}
-      <AddReminderForm
-        onAddReminder={handleAddReminder}
-        onPreviewSound={previewAlert}
-      />
-
       {/* Scheduled Reminders Table */}
       <ReminderTable
         reminders={reminders}
@@ -74,6 +68,12 @@ export const VoiceReminder: React.FC = () => {
         onUpdateReminder={handleUpdateReminder}
         onDeleteReminder={handleDeleteReminder}
         onClearAll={handleClearAll}
+        onPreviewSound={previewAlert}
+      />
+
+      {/* Add Alert Form */}
+      <AddReminderForm
+        onAddReminder={handleAddReminder}
         onPreviewSound={previewAlert}
       />
 
