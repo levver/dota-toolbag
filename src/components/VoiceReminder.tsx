@@ -398,13 +398,13 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
             <span className="text-xs font-semibold text-canvas-muted uppercase tracking-wider">
               Match Clock
             </span>
-            <span className="text-[11px] text-palette-blue-text font-mono">
+            <span className="text-[11px] text-palette-blue-text font-medium">
               ({isPreGame ? 'Pre-game' : 'Game time'})
             </span>
           </div>
 
           <span
-            className={`text-xs px-2.5 py-0.5 rounded-bespoke border font-mono ${
+            className={`text-[11px] font-medium px-2.5 py-1 rounded-bespoke border ${
               isTimerRunning
                 ? 'bg-palette-blue-subtle text-palette-blue-text border-palette-blue-border'
                 : 'bg-canvas-subtle text-canvas-muted border-canvas-border'
@@ -598,7 +598,7 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
 
           <button
             type="submit"
-            className="btn-bespoke btn-blue w-full py-2 font-medium text-xs flex items-center justify-center gap-1.5"
+            className="btn-bespoke btn-blue w-full font-medium text-xs py-2.5 px-4 flex items-center justify-center gap-2"
           >
             <span>+ Add Alert</span>
           </button>
@@ -613,8 +613,9 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
           </span>
           {reminders.length > 0 && (
             <button
+              type="button"
               onClick={handleClearAllReminders}
-              className="text-[11px] text-canvas-muted hover:text-palette-red transition"
+              className="btn-bespoke btn-surface text-[11px] px-2.5 py-1 font-medium text-canvas-muted hover:text-palette-red transition"
             >
               Clear all
             </button>
@@ -799,14 +800,15 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
               <div className="min-w-0 pr-2">
                 <div className="flex items-center gap-1.5">
                   <span className="font-medium text-canvas-text truncate">{preset.name}</span>
-                  <span className="text-[9px] font-mono px-1 py-0.2 rounded-bespoke-sm bg-palette-blue-subtle text-palette-blue-text border border-palette-blue-border">
+                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-bespoke-sm bg-palette-blue-subtle text-palette-blue-text border border-palette-blue-border">
                     Default
                   </span>
                 </div>
-                <div className="text-[10px] text-canvas-muted mt-0.5">{preset.reminders.length} alerts • {preset.description}</div>
+                <div className="text-[11px] text-canvas-muted mt-0.5">{preset.reminders.length} alerts • {preset.description}</div>
               </div>
               <div className="flex items-center space-x-1.5 flex-shrink-0">
                 <button
+                  type="button"
                   onClick={() => handleLoadPresetConfig(preset.reminders, preset.name)}
                   className="btn-bespoke btn-surface text-xs px-2.5 py-1 text-palette-blue-text font-medium"
                 >
@@ -825,20 +827,22 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
               <div className="min-w-0 pr-2">
                 <div className="flex items-center gap-1.5">
                   <span className="font-medium text-canvas-text truncate">{name}</span>
-                  <span className="text-[9px] font-mono px-1 py-0.2 rounded-bespoke-sm bg-canvas-card text-canvas-muted border border-canvas-border">
+                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-bespoke-sm bg-canvas-card text-canvas-muted border border-canvas-border">
                     Custom
                   </span>
                 </div>
-                <div className="text-[10px] text-canvas-muted mt-0.5">{items.length} alerts</div>
+                <div className="text-[11px] text-canvas-muted mt-0.5">{items.length} alerts</div>
               </div>
               <div className="flex items-center space-x-1.5 flex-shrink-0">
                 <button
+                  type="button"
                   onClick={() => handleLoadPresetConfig(items, name)}
                   className="btn-bespoke btn-surface text-xs px-2.5 py-1 text-palette-blue-text font-medium"
                 >
                   Load
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleDeleteCustomPreset(name)}
                   className="text-canvas-muted hover:text-palette-red px-1 py-0.5 text-xs"
                   title="Delete configuration"
