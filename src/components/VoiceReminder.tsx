@@ -9,6 +9,7 @@ import {
   ensureAudioContext,
   SOUND_PRESETS
 } from '../utils/audio';
+import { ToolLayout } from './ToolLayout';
 
 interface VoiceReminderProps {
   isTimerRunning: boolean;
@@ -306,17 +307,7 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
   const isPreGame = currentTime < 0;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-5 text-canvas-text">
-      {/* Tool Header */}
-      <div className="flex items-center justify-between pb-2 border-b border-canvas-border">
-        <div className="flex items-center space-x-2">
-          <span className="w-2.5 h-2.5 rounded-bespoke-sm bg-palette-blue"></span>
-          <h1 className="text-sm font-semibold tracking-tight text-canvas-text uppercase">
-            Timed Voice & Sound Reminder
-          </h1>
-        </div>
-      </div>
-
+    <ToolLayout title="Timed Voice & Sound Reminder" accentColor="blue">
       {/* Clock Section */}
       <div className="bg-canvas-card rounded-bespoke-lg border border-canvas-border p-5">
         <div className="flex items-center justify-between pb-3 border-b border-canvas-border">
@@ -701,6 +692,6 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
           ))}
         </div>
       </div>
-    </div>
+    </ToolLayout>
   );
 };

@@ -11,6 +11,8 @@ import {
   HeroInfo
 } from '../utils/openDota';
 
+import { ToolLayout } from './ToolLayout';
+
 export const HeroStatsPuller: React.FC = () => {
   const [inputs, setInputs] = useState<string[]>(['', '', '', '', '']);
   const [isLoading, setIsLoading] = useState(false);
@@ -179,17 +181,7 @@ export const HeroStatsPuller: React.FC = () => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-5 text-canvas-text">
-      {/* Tool Header */}
-      <div className="flex items-center justify-between pb-2 border-b border-canvas-border">
-        <div className="flex items-center space-x-2">
-          <span className="w-2.5 h-2.5 rounded-bespoke-sm bg-palette-red"></span>
-          <h1 className="text-sm font-semibold tracking-tight text-canvas-text uppercase">
-            Hero Profile Checker
-          </h1>
-        </div>
-      </div>
-
+    <ToolLayout title="Hero Profile Checker" accentColor="red">
       {/* Input Control Box */}
       <div className="bg-canvas-card rounded-bespoke-lg border border-canvas-border p-4 sm:p-5 space-y-4">
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -344,7 +336,7 @@ export const HeroStatsPuller: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </ToolLayout>
   );
 };
 

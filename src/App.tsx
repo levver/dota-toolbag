@@ -32,7 +32,7 @@ export function App() {
         isTimerRunning={isTimerRunning}
       />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-6">
+      <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-6">
         <div className={activeTab === 'stats' ? 'block' : 'hidden'}>
           <HeroStatsPuller />
         </div>
