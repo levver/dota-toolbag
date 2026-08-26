@@ -25,14 +25,14 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-panel-bg text-zinc-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-canvas-bg text-canvas-text flex flex-col font-sans selection:bg-palette-purple selection:text-white">
       <Navigation
         activeTab={activeTab}
         setActiveTab={handleTabChange}
         isTimerRunning={isTimerRunning}
       />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-5">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-6">
         <div className={activeTab === 'stats' ? 'block' : 'hidden'}>
           <HeroStatsPuller />
         </div>
@@ -45,8 +45,8 @@ export function App() {
         </div>
       </main>
 
-      <footer className="border-t border-panel-border py-3 text-center text-xs text-zinc-600">
-        Dota Tools
+      <footer className="border-t border-canvas-border py-4 text-center text-xs text-canvas-muted">
+        Dota Tools Suite
       </footer>
     </div>
   );

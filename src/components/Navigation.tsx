@@ -13,40 +13,58 @@ export const Navigation: React.FC<NavigationProps> = ({
   isTimerRunning = false
 }) => {
   return (
-    <header className="border-b border-panel-border bg-panel-bg">
-      <div className="max-w-5xl mx-auto px-4">
-        <div className="flex items-center justify-between h-12">
-          {/* Simple App Title */}
-          <div className="flex items-center space-x-2">
-            <span className="font-semibold text-sm text-zinc-100 tracking-tight">
+    <header className="border-b border-canvas-border bg-canvas-bg sticky top-0 z-50">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6">
+        <div className="flex items-center justify-between h-13 py-2.5">
+          {/* App Brand */}
+          <div
+            className="flex items-center space-x-2.5 cursor-pointer select-none"
+            onClick={() => setActiveTab('stats')}
+          >
+            <div className="w-6 h-6 rounded-bespoke bg-gradient-to-br from-palette-red to-palette-purple flex items-center justify-center text-white font-bold text-xs shadow-sm">
+              D
+            </div>
+            <span className="font-semibold text-sm text-canvas-text tracking-tight">
               Dota Tools
             </span>
           </div>
 
-          {/* Clean Functional Tabs */}
-          <nav className="flex space-x-1">
+          {/* Bespoke Navigation Tabs with distinctive tool hues */}
+          <nav className="flex space-x-1.5 p-1 bg-canvas-card rounded-bespoke-lg border border-canvas-border">
+            {/* Tool 1: Hero Stats (Crimson Red Hue) */}
             <button
               onClick={() => setActiveTab('stats')}
-              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+              className={`btn-bespoke px-3.5 py-1.5 text-xs font-medium flex items-center gap-1.5 ${
                 activeTab === 'stats'
-                  ? 'bg-zinc-800 text-zinc-100'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
+                  ? 'bg-palette-red-subtle text-palette-red-text border border-palette-red-border shadow-sm'
+                  : 'text-canvas-muted hover:text-canvas-text hover:bg-canvas-subtle'
               }`}
             >
-              Hero Stats
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  activeTab === 'stats' ? 'bg-palette-red' : 'bg-canvas-border'
+                }`}
+              ></span>
+              <span>Hero Stats</span>
             </button>
 
+            {/* Tool 2: Voice & Sound Reminder (Arcane Purple Hue) */}
             <button
               onClick={() => setActiveTab('reminder')}
-              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1.5 ${
+              className={`btn-bespoke px-3.5 py-1.5 text-xs font-medium flex items-center gap-1.5 ${
                 activeTab === 'reminder'
-                  ? 'bg-zinc-800 text-zinc-100'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
+                  ? 'bg-palette-purple-subtle text-palette-purple-text border border-palette-purple-border shadow-sm'
+                  : 'text-canvas-muted hover:text-canvas-text hover:bg-canvas-subtle'
               }`}
             >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  activeTab === 'reminder' ? 'bg-palette-purple' : 'bg-canvas-border'
+                }`}
+              ></span>
               <span>Timed Reminders</span>
               {isTimerRunning && (
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse ml-0.5"></span>
               )}
             </button>
           </nav>

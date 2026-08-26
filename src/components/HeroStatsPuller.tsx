@@ -94,7 +94,6 @@ export const HeroStatsPuller: React.FC = () => {
     setMessage(null);
     setResults([]);
 
-    // Update URL query parameters only on fetch press
     updateUrlParams(currentInputs);
 
     const uniqueIds = Array.from(new Set(profileIds));
@@ -105,7 +104,7 @@ export const HeroStatsPuller: React.FC = () => {
 
       setResults(fetchedResults);
       setMessage({
-        text: `Processed ${fetchedResults.length} profile${fetchedResults.length > 1 ? 's' : ''}.`,
+        text: `Processed ${fetchedResults.length} player profile${fetchedResults.length > 1 ? 's' : ''}.`,
         type: 'success'
       });
     } catch (err) {
@@ -167,35 +166,49 @@ export const HeroStatsPuller: React.FC = () => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-5 text-zinc-200">
+    <div className="max-w-5xl mx-auto space-y-5 text-canvas-text">
+      {/* Tool Header with Red Accent */}
+      <div className="flex items-center justify-between pb-2 border-b border-canvas-border">
+        <div className="flex items-center space-x-2">
+          <span className="w-2.5 h-2.5 rounded-bespoke-sm bg-palette-red"></span>
+          <h1 className="text-sm font-semibold tracking-tight text-canvas-text uppercase">
+            Hero Profile Checker
+          </h1>
+        </div>
+        <span className="text-[11px] font-mono text-palette-red-text bg-palette-red-subtle px-2 py-0.5 rounded-bespoke border border-palette-red-border">
+          Crimson Suite
+        </span>
+      </div>
+
       {/* Input Control Box */}
-      <div className="bg-panel-card rounded border border-panel-border p-4 space-y-3">
-        <form onSubmit={handleSubmit} className="space-y-3">
+      <div className="bg-canvas-card rounded-bespoke-lg border border-canvas-border p-4 sm:p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">
-              Player Profiles (1 - 5)
+            <span className="text-xs font-semibold text-canvas-muted uppercase tracking-wider">
+              Lineup Positions
             </span>
             <button
               type="button"
               onClick={handleClear}
-              className="text-[11px] text-zinc-400 hover:text-zinc-200 px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 transition"
+              className="btn-bespoke btn-surface text-[11px] px-2.5 py-1"
             >
-              Clear
+              Clear Lineup
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-5 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
             {POSITIONS.map((posLabel, idx) => (
-              <div key={idx} className="space-y-1">
-                <label className="text-[11px] text-zinc-400 block truncate">
-                  {posLabel}
-                </label>
+              <div key={idx} className="space-y-1.5">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-medium text-palette-red-text">{posLabel.split(' ')[0]}</span>
+                  <span className="text-canvas-muted font-mono text-[10px]">Pos {idx + 1}</span>
+                </div>
                 <input
                   type="text"
                   value={inputs[idx]}
                   onChange={(e) => handleInputChange(idx, e.target.value)}
-                  placeholder="ID or URL"
-                  className="w-full bg-zinc-900 text-zinc-100 placeholder-zinc-600 border border-zinc-700 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-zinc-500"
+                  placeholder="ID or Dotabuff"
+                  className="w-full bg-canvas-subtle text-canvas-text placeholder-canvas-muted/60 border border-canvas-border rounded-bespoke px-3 py-2 text-xs focus:outline-none focus:border-palette-red transition"
                 />
               </div>
             ))}
@@ -205,9 +218,13 @@ export const HeroStatsPuller: React.FC = () => {
             <button
               type="submit"
               disabled={isLoading || heroMapLoading}
-              className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-100 font-medium text-xs py-2 px-3 rounded border border-zinc-700 disabled:opacity-50 transition"
+              className="btn-bespoke btn-red w-full font-medium text-xs py-2.5 px-4 disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {isLoading ? 'Fetching Data...' : 'Get Most Played Heroes'}
+              {isLoading ? (
+                <span>Fetching Hero Data...</span>
+              ) : (
+                <span>Get Most Played Heroes</span>
+              )}
             </button>
           </div>
         </form>
@@ -215,12 +232,12 @@ export const HeroStatsPuller: React.FC = () => {
         {/* Message Alert */}
         {message && (
           <div
-            className={`p-2.5 rounded text-xs border ${
+            className={`p-3 rounded-bespoke text-xs border ${
               message.type === 'error'
-                ? 'bg-rose-950/40 border-rose-900/60 text-rose-300'
+                ? 'bg-palette-red-subtle border-palette-red-border text-palette-red-text'
                 : message.type === 'success'
-                ? 'bg-emerald-950/40 border-emerald-900/60 text-emerald-300'
-                : 'bg-zinc-900 border-zinc-700 text-zinc-300'
+                ? 'bg-palette-green-subtle border-palette-green-border text-palette-green-text'
+                : 'bg-canvas-subtle border-canvas-border text-canvas-text'
             }`}
           >
             {message.text}
@@ -230,57 +247,57 @@ export const HeroStatsPuller: React.FC = () => {
 
       {/* Results Section */}
       {results.length > 0 && (
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">
-              Results ({results.length})
+            <span className="text-xs font-semibold text-canvas-muted uppercase tracking-wider">
+              Profile Analysis ({results.length})
             </span>
 
             <button
               onClick={handleCopyClipboard}
-              className="px-3 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs rounded border border-zinc-700 transition"
+              className="btn-bespoke btn-surface text-xs px-3.5 py-1.5 font-medium flex items-center gap-1.5"
             >
-              {copied ? 'Copied! ✅' : 'Copy All Results to Clipboard'}
+              <span>{copied ? 'Copied Summary! ✅' : 'Copy Formatted Summary'}</span>
             </button>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-3.5">
             {results.map((player, pIdx) => {
               return (
                 <div
                   key={player.accountId + pIdx}
-                  className="bg-panel-card rounded border border-panel-border p-4 space-y-3"
+                  className="bg-canvas-card rounded-bespoke-lg border border-canvas-border p-4 sm:p-5 space-y-3.5"
                 >
                   {/* Player Summary Header */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-panel-borderSubtle">
-                    <div className="flex items-center space-x-2.5 min-w-0">
+                  <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-canvas-border">
+                    <div className="flex items-center space-x-3 min-w-0">
                       <img
                         src={player.avatarUrl}
                         alt={player.name}
-                        className="w-7 h-7 rounded object-cover border border-zinc-700 flex-shrink-0"
+                        className="w-8 h-8 rounded-bespoke object-cover border border-canvas-borderLight flex-shrink-0"
                         onError={(e) => {
                           (e.target as HTMLElement).setAttribute(
                             'src',
-                            'https://placehold.co/28x28/27272a/FFFFFF?text=P'
+                            'https://placehold.co/32x32/1e293b/FFFFFF?text=P'
                           );
                         }}
                       />
                       <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-mono px-1 rounded bg-zinc-800 border border-zinc-700 text-zinc-400">
-                            P{pIdx + 1}
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-bespoke-sm bg-palette-red-subtle border border-palette-red-border text-palette-red-text">
+                            Pos {pIdx + 1}
                           </span>
-                          <span className="text-xs font-semibold text-zinc-100 truncate">
+                          <span className="text-sm font-semibold text-canvas-text truncate">
                             {player.name}
                           </span>
                         </div>
-                        <div className="text-[11px] text-zinc-500">
-                          ID: {player.accountId} •{' '}
+                        <div className="text-[11px] text-canvas-muted mt-0.5">
+                          ID: <span className="font-mono text-zinc-300">{player.accountId}</span> •{' '}
                           <a
                             href={`https://www.dotabuff.com/players/${player.accountId}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-zinc-400 hover:text-zinc-200 underline"
+                            className="text-palette-red-accent hover:underline"
                           >
                             Dotabuff
                           </a>
@@ -289,7 +306,7 @@ export const HeroStatsPuller: React.FC = () => {
                     </div>
 
                     {/* Rank Badge */}
-                    <div className="flex items-center gap-1.5 bg-zinc-900 px-2 py-1 rounded border border-zinc-800 text-xs">
+                    <div className="flex items-center gap-2 bg-canvas-subtle px-2.5 py-1.5 rounded-bespoke border border-canvas-borderLight text-xs">
                       <img
                         src={player.rankUrl.url}
                         alt={player.rankText}
@@ -301,7 +318,7 @@ export const HeroStatsPuller: React.FC = () => {
                           );
                         }}
                       />
-                      <span className="text-[11px] text-zinc-300 font-medium">{player.rankText}</span>
+                      <span className="text-[11px] text-canvas-text font-medium">{player.rankText}</span>
                     </div>
                   </div>
 
@@ -337,34 +354,34 @@ interface StatColumnProps {
 
 const StatColumn: React.FC<StatColumnProps> = ({ title, data }) => {
   return (
-    <div className="bg-panel-subtle rounded p-2.5 border border-panel-borderSubtle">
-      <div className="text-[11px] font-semibold text-zinc-400 pb-1.5 mb-2 border-b border-panel-borderSubtle flex items-center justify-between">
+    <div className="bg-canvas-subtle rounded-bespoke p-3 border border-canvas-border">
+      <div className="text-[11px] font-semibold text-zinc-300 pb-2 mb-2 border-b border-canvas-border flex items-center justify-between">
         <span>{title}</span>
         {data.success && data.heroes && (
-          <span className="text-[10px] text-zinc-500 font-mono">
+          <span className="text-[10px] text-canvas-muted font-mono">
             {data.heroes.length} heroes
           </span>
         )}
       </div>
 
       {data.success && data.heroes && data.heroes.length > 0 ? (
-        <ul className="space-y-1">
+        <ul className="space-y-1.5">
           {data.heroes.map((hero, index) => {
             const wrBg = getWinrateColor(hero.winrate);
 
             return (
               <li
                 key={index}
-                className="flex items-center justify-between text-xs text-zinc-300"
+                className="flex items-center justify-between text-xs text-zinc-200 py-0.5"
               >
-                <div className="flex items-center space-x-1.5 min-w-0 pr-1.5">
-                  <span className="text-[10px] font-mono text-zinc-500 w-3 text-right">
+                <div className="flex items-center space-x-2 min-w-0 pr-1.5">
+                  <span className="text-[10px] font-mono text-canvas-muted w-3 text-right">
                     {index + 1}
                   </span>
                   <img
                     src={hero.iconUrl}
                     alt={hero.name}
-                    className="w-5 h-5 rounded object-cover border border-zinc-700 flex-shrink-0"
+                    className="w-5 h-5 rounded-bespoke-sm object-cover border border-canvas-borderLight flex-shrink-0"
                     onError={(e) => {
                       (e.target as HTMLElement).setAttribute(
                         'src',
@@ -372,17 +389,17 @@ const StatColumn: React.FC<StatColumnProps> = ({ title, data }) => {
                       );
                     }}
                   />
-                  <span className="text-[11px] truncate" title={hero.name}>
+                  <span className="text-[11px] font-medium truncate" title={hero.name}>
                     {hero.name}
                   </span>
                 </div>
 
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <span className="text-[10px] font-mono text-zinc-400 bg-zinc-900 px-1 rounded border border-zinc-800">
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <span className="text-[10px] font-mono text-zinc-300 bg-canvas-card px-1.5 py-0.2 rounded-bespoke-sm border border-canvas-border">
                     {hero.games}g
                   </span>
                   <span
-                    className="text-[10px] font-mono font-semibold px-1 rounded text-black text-center min-w-[34px]"
+                    className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-bespoke-sm text-black text-center min-w-[36px]"
                     style={{ backgroundColor: wrBg }}
                   >
                     {hero.winrate}
@@ -393,8 +410,8 @@ const StatColumn: React.FC<StatColumnProps> = ({ title, data }) => {
           })}
         </ul>
       ) : (
-        <div className="h-20 flex items-center justify-center text-center text-[11px] text-zinc-500">
-          {data.message || 'No data'}
+        <div className="h-24 flex items-center justify-center text-center text-[11px] text-canvas-muted">
+          {data.message || 'No match statistics available'}
         </div>
       )}
     </div>
