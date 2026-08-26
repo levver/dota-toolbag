@@ -36,10 +36,10 @@ export const Navigation: React.FC<NavigationProps> = ({
             {/* Tool 1: Hero Stats (Red) */}
             <button
               onClick={() => setActiveTab('stats')}
-              className={`btn-bespoke px-3.5 py-1.5 text-xs font-medium flex items-center gap-1.5 ${
+              className={`btn-bespoke px-3.5 py-1.5 text-xs font-medium flex items-center gap-1.5 border transition-colors ${
                 activeTab === 'stats'
-                  ? 'bg-palette-red-subtle text-palette-red-text border border-palette-red-border shadow-sm'
-                  : 'text-canvas-muted hover:text-canvas-text hover:bg-canvas-subtle'
+                  ? 'bg-palette-red-subtle text-palette-red-text border-palette-red-border shadow-sm'
+                  : 'text-canvas-muted hover:text-canvas-text hover:bg-canvas-subtle border-transparent'
               }`}
             >
               <span
@@ -53,10 +53,10 @@ export const Navigation: React.FC<NavigationProps> = ({
             {/* Tool 2: Voice & Sound Reminder (Blue) */}
             <button
               onClick={() => setActiveTab('reminder')}
-              className={`btn-bespoke px-3.5 py-1.5 text-xs font-medium flex items-center gap-1.5 ${
+              className={`btn-bespoke px-3.5 py-1.5 text-xs font-medium flex items-center gap-1.5 border transition-colors ${
                 activeTab === 'reminder'
-                  ? 'bg-palette-blue-subtle text-palette-blue-text border border-palette-blue-border shadow-sm'
-                  : 'text-canvas-muted hover:text-canvas-text hover:bg-canvas-subtle'
+                  ? 'bg-palette-blue-subtle text-palette-blue-text border-palette-blue-border shadow-sm'
+                  : 'text-canvas-muted hover:text-canvas-text hover:bg-canvas-subtle border-transparent'
               }`}
             >
               <span

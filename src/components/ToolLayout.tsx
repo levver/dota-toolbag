@@ -26,10 +26,10 @@ export const ToolLayout: React.FC<ToolLayoutProps> = ({
   return (
     <div className="max-w-4xl mx-auto space-y-5 text-canvas-text w-full">
       {/* Standardized Tool Header */}
-      <div className="flex items-center justify-between pb-2 border-b border-canvas-border">
+      <div className="flex items-center justify-between pb-2 border-b border-canvas-border min-h-[32px]">
         <div className="flex items-center space-x-2">
-          <span className={`w-2.5 h-2.5 rounded-bespoke-sm ${ACCENT_DOT_CLASSES[accentColor]}`}></span>
-          <h1 className="text-sm font-semibold tracking-tight text-canvas-text uppercase">
+          <span className={`w-2.5 h-2.5 rounded-bespoke-sm ${ACCENT_DOT_CLASSES[accentColor]} flex-shrink-0`}></span>
+          <h1 className="text-sm font-semibold tracking-tight text-canvas-text uppercase leading-none">
             {title}
           </h1>
         </div>
