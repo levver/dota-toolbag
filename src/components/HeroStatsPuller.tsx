@@ -11,6 +11,7 @@ import {
 import { ToolLayout } from './ToolLayout';
 import { LineupInputs } from './stats/LineupInputs';
 import { PlayerCard } from './stats/PlayerCard';
+import { ClarityImportModal } from './stats/ClarityImportModal';
 
 export const HeroStatsPuller: React.FC = () => {
   const [inputs, setInputs] = useState<string[]>(['', '', '', '', '']);
@@ -19,6 +20,7 @@ export const HeroStatsPuller: React.FC = () => {
   const [results, setResults] = useState<PlayerProfileResult[]>([]);
   const [message, setMessage] = useState<{ text: string; type: 'error' | 'success' | 'info' } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   const heroMapRef = useRef<Record<number, HeroInfo>>({});
 
@@ -138,16 +140,30 @@ export const HeroStatsPuller: React.FC = () => {
     }
   };
 
+  const handleApplyClarityLineup = (orderedIds: string[]) => {
+    setInputs(orderedIds);
+    updateUrlParams(orderedIds);
+    executeFetch(orderedIds);
+  };
+
   return (
     <ToolLayout title="Scouting" accentColor="red">
       <LineupInputs
         inputs={inputs}
         onChangeInput={handleInputChange}
         onClear={handleClear}
+        onOpenImportModal={() => setIsImportModalOpen(true)}
         onSubmit={handleSubmit}
         isLoading={isLoading}
         heroMapLoading={heroMapLoading}
         message={message}
+      />
+
+      {/* Clarity Draft Sheet Import Modal */}
+      <ClarityImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onApplyLineup={handleApplyClarityLineup}
       />
 
       {/* Results Section */}

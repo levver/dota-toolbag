@@ -1,10 +1,12 @@
 import React from 'react';
 import { POSITIONS } from '../../utils/openDota';
+import { FileSpreadsheet } from 'lucide-react';
 
 interface LineupInputsProps {
   inputs: string[];
   onChangeInput: (index: number, val: string) => void;
   onClear: () => void;
+  onOpenImportModal: () => void;
   onSubmit: (e: React.FormEvent) => void;
   isLoading: boolean;
   heroMapLoading: boolean;
@@ -15,6 +17,7 @@ export const LineupInputs: React.FC<LineupInputsProps> = ({
   inputs,
   onChangeInput,
   onClear,
+  onOpenImportModal,
   onSubmit,
   isLoading,
   heroMapLoading,
@@ -23,17 +26,27 @@ export const LineupInputs: React.FC<LineupInputsProps> = ({
   return (
     <div className="bg-canvas-card rounded-bespoke-lg border border-canvas-border p-4 sm:p-5 space-y-4">
       <form onSubmit={onSubmit} className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-xs font-semibold text-canvas-muted uppercase tracking-wider">
             Lineup Positions
           </span>
-          <button
-            type="button"
-            onClick={onClear}
-            className="btn-bespoke btn-surface text-[11px] px-2.5 py-1 font-medium"
-          >
-            Clear Lineup
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onOpenImportModal}
+              className="btn-bespoke btn-surface text-[11px] px-2.5 py-1 font-medium text-palette-red-text border border-palette-red-border hover:bg-palette-red-subtle/40 transition flex items-center gap-1.5"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <span>Import from Clarity Draft Sheet</span>
+            </button>
+            <button
+              type="button"
+              onClick={onClear}
+              className="btn-bespoke btn-surface text-[11px] px-2.5 py-1 font-medium"
+            >
+              Clear Lineup
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
