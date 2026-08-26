@@ -77,7 +77,7 @@ export function getTabNameCandidates(divisionNumber: number): string[] {
   const letter = divLetters[divisionNumber] || '';
 
   return [
-    // Clarity Season format: "06d _ Division 4"
+    // Clarity Season 17 format: "06d _ Division 4"
     `06${letter} _ Division ${divisionNumber}`,
     `06${letter}_Division ${divisionNumber}`,
     `06${letter} - Division ${divisionNumber}`,
@@ -145,6 +145,116 @@ export async function fetchGoogleSheetHtmlGrid(
 }
 
 /**
+ * Master player map cache by spreadsheetId.
+ */
+let masterPlayerMapCache: {
+  spreadsheetId: string;
+  map: Map<string, { accountId: string; dotabuffUrl: string; mmr?: number }>;
+} | null = null;
+
+/**
+ * Fetches the master account list / player list tab from the sheet to resolve VLOOKUP formulas.
+ */
+export async function fetchMasterPlayerMap(
+  spreadsheetId: string
+): Promise<Map<string, { accountId: string; dotabuffUrl: string; mmr?: number }>> {
+  if (masterPlayerMapCache && masterPlayerMapCache.spreadsheetId === spreadsheetId) {
+    return masterPlayerMapCache.map;
+  }
+
+  const map = new Map<string, { accountId: string; dotabuffUrl: string; mmr?: number }>();
+
+  const masterTabCandidates = [
+    '05 _ Full Account List',
+    '05_Full Account List',
+    'Full Account List',
+    '04a _ Player List',
+    '04a_Player List',
+    '04b _ Player List (MMR Sorted)',
+    '04b_Player List (MMR Sorted)',
+    'Player List',
+    'Players',
+    'Accounts',
+    'Account List',
+  ];
+
+  for (const tabName of masterTabCandidates) {
+    try {
+      const grid = await fetchGoogleSheetHtmlGrid(spreadsheetId, { tabName });
+      if (grid && grid.length > 1) {
+        grid.forEach((row) => {
+          let foundId: string | null = null;
+          let foundUrl = '';
+          let playerName = '';
+          let mmr: number | undefined;
+
+          row.forEach((cell) => {
+            // Check for link in href or text
+            if (cell.href) {
+              const id = extractDotaAccountId(cell.href);
+              if (id) {
+                foundId = id;
+                foundUrl = cell.href;
+              }
+            }
+            if (!foundId && cell.text) {
+              const id = extractDotaAccountId(cell.text);
+              if (id) {
+                foundId = id;
+                foundUrl = cell.text;
+              }
+            }
+
+            // Check for MMR (3 to 5 digits)
+            if (/^\d{3,5}$/.test(cell.text.trim()) && !foundId) {
+              const parsed = parseInt(cell.text.trim(), 10);
+              if (parsed > 400 && parsed < 16000) {
+                mmr = parsed;
+              }
+            }
+
+            // Name (first non-numeric string that isn't a header)
+            if (
+              !playerName &&
+              cell.text &&
+              !cell.text.toLowerCase().includes('dotabuff') &&
+              !cell.text.toLowerCase().includes('db link') &&
+              !cell.text.toLowerCase().includes('mmr') &&
+              !cell.text.toLowerCase().includes('player') &&
+              !cell.text.toLowerCase().includes('discord') &&
+              !cell.text.toLowerCase().includes('steam') &&
+              !/^\d+$/.test(cell.text)
+            ) {
+              playerName = cell.text.trim();
+            }
+          });
+
+          if (playerName && foundId) {
+            const cleanKey = playerName.toLowerCase().trim();
+            if (!map.has(cleanKey)) {
+              map.set(cleanKey, {
+                accountId: foundId,
+                dotabuffUrl: foundUrl.startsWith('http') ? foundUrl : `https://www.dotabuff.com/players/${foundId}`,
+                mmr,
+              });
+            }
+          }
+        });
+
+        if (map.size > 10) {
+          break; // Found good master list
+        }
+      }
+    } catch (e) {
+      // Try next master tab candidate
+    }
+  }
+
+  masterPlayerMapCache = { spreadsheetId, map };
+  return map;
+}
+
+/**
  * Imports 5-player team from a Clarity League Draft Sheet given URL, Division, and Captain name.
  */
 export async function importTeamFromClaritySheet(
@@ -197,6 +307,9 @@ export async function importTeamFromClaritySheet(
     );
   }
 
+  // Also fetch the master player map asynchronously to resolve VLOOKUP / DB Link formulas
+  const masterPlayerMap = await fetchMasterPlayerMap(spreadsheetId);
+
   // Find all cells matching the captain's name
   interface MatchLocation {
     row: number;
@@ -239,7 +352,7 @@ export async function importTeamFromClaritySheet(
   const captainCol = bestMatch.col;
   const matchedCaptainName = bestMatch.text || captainQuery;
 
-  // Detect column mapping for this team block (Player Col, MMR Col, DB Col)
+  // Detect column mapping for this team block (Player Col = Col 0, MMR Col = Col 1, DB Col = Col 2)
   let playerCol = captainCol;
   let mmrCol = captainCol + 1;
   let dbCol = captainCol + 2;
@@ -292,20 +405,26 @@ export async function importTeamFromClaritySheet(
       if (foundId) foundUrl = dbCell.href;
     }
 
-    // 2. From dbCell text
+    // 2. From dbCell text if it has a URL
     if (!foundId && dbCell.text) {
       foundId = extractDotaAccountId(dbCell.text);
       if (foundId) foundUrl = dbCell.text;
     }
 
-    // 3. From any cell in the immediate row that contains a link
-    if (!foundId) {
-      for (let c = Math.max(0, playerCol - 1); c <= Math.min(row.length - 1, dbCol + 2); c++) {
-        if (row[c]?.href) {
-          const id = extractDotaAccountId(row[c].href!);
-          if (id) {
-            foundId = id;
-            foundUrl = row[c].href!;
+    // 3. Look up player name in master player map (resolves VLOOKUP / lookup statements)
+    if (!foundId && pName) {
+      const masterInfo = masterPlayerMap.get(pName.toLowerCase());
+      if (masterInfo) {
+        foundId = masterInfo.accountId;
+        foundUrl = masterInfo.dotabuffUrl;
+        if (!mmrNum && masterInfo.mmr) mmrNum = masterInfo.mmr;
+      } else {
+        // Partial/fuzzy match across master player map keys
+        for (const [key, val] of masterPlayerMap.entries()) {
+          if (key.includes(pName.toLowerCase()) || pName.toLowerCase().includes(key)) {
+            foundId = val.accountId;
+            foundUrl = val.dotabuffUrl;
+            if (!mmrNum && val.mmr) mmrNum = val.mmr;
             break;
           }
         }
