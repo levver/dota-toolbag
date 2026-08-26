@@ -4,7 +4,22 @@ import { storage } from '../../utils/storage';
 
 const BUILT_IN_PRESETS: PresetConfig[] = [
   {
-    name: 'Dota 2 Macro (Voice + Beeps)',
+    name: 'Callouts',
+    description: 'Key match callouts for runes, gates, smoke timings, tormentor, and roshan.',
+    isBuiltIn: true,
+    reminders: [
+      { id: 'callout_fun', startTime: 0, type: 'single', soundType: 'speech', text: 'Have Fun' },
+      { id: 'callout_lotus', startTime: 150, type: 'repeat', soundType: 'speech', repeatCount: 2, repeatFrequency: 180, text: 'Prep Lotus' },
+      { id: 'callout_gate', startTime: 240, type: 'single', soundType: 'speech', text: 'Place gate vision' },
+      { id: 'callout_power', startTime: 315, type: 'repeat', soundType: 'speech', repeatCount: 2, repeatFrequency: 120, text: 'Contest power rune' },
+      { id: 'callout_wisdom', startTime: 380, type: 'repeat', soundType: 'speech', repeatCount: 4, repeatFrequency: 420, text: 'Wisdom rune' },
+      { id: 'callout_smoke', startTime: 900, type: 'single', soundType: 'speech', text: 'Get a Smoke' },
+      { id: 'callout_tormentor', startTime: 1110, type: 'single', soundType: 'speech', text: 'Prep for Tormentor' },
+      { id: 'callout_roshan', startTime: 1440, type: 'single', soundType: 'speech', text: 'Prep Roshan' }
+    ]
+  },
+  {
+    name: 'Dota 2 Macro',
     description: 'Voice callouts for runes, tormentor, and neutral items; high pings for camp stacks.',
     isBuiltIn: true,
     reminders: [
@@ -27,7 +42,7 @@ const BUILT_IN_PRESETS: PresetConfig[] = [
     ]
   },
   {
-    name: 'All Beeps & Chimes (No Voice)',
+    name: 'All Beeps & Chimes',
     description: 'Pure audio cues using chimes, pings, and pulses without text-to-speech reading.',
     isBuiltIn: true,
     reminders: [

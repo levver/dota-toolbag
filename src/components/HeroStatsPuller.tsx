@@ -139,7 +139,7 @@ export const HeroStatsPuller: React.FC = () => {
   };
 
   return (
-    <ToolLayout title="Hero Profile Checker" accentColor="red">
+    <ToolLayout title="Scouting" accentColor="red">
       <LineupInputs
         inputs={inputs}
         onChangeInput={handleInputChange}

@@ -61,9 +61,9 @@ export const LineupInputs: React.FC<LineupInputsProps> = ({
             className="btn-bespoke btn-accent w-full font-medium text-xs py-2.5 px-4 disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {isLoading ? (
-              <span>Fetching Hero Data...</span>
+              <span>Scouting...</span>
             ) : (
-              <span>Get Most Played Heroes</span>
+              <span>Scout</span>
             )}
           </button>
         </div>

@@ -15,8 +15,8 @@ export interface ToolDefinition {
 export const TOOLS: ToolDefinition[] = [
   {
     id: 'stats',
-    title: 'Hero Profile Checker',
-    navLabel: 'Hero Stats',
+    title: 'Scouting',
+    navLabel: 'Scouting',
     accentColor: 'red',
     component: HeroStatsPuller,
   },
