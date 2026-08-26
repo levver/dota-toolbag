@@ -15,6 +15,38 @@ export interface HeroInfo {
 let heroMapCache: Record<number, HeroInfo> | null = null;
 
 /**
+ * Robust clipboard copy function supporting modern API with fallback.
+ */
+export async function copyTextToClipboard(text: string): Promise<boolean> {
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (err) {
+      console.warn('navigator.clipboard failed, attempting textarea fallback...', err);
+    }
+  }
+
+  try {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
+    textArea.setAttribute('readonly', '');
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    const successful = document.execCommand('copy');
+    document.body.removeChild(textArea);
+    return successful;
+  } catch (err) {
+    console.error('Fallback clipboard copy failed:', err);
+    return false;
+  }
+}
+
+/**
  * Parses user input (Account ID, Dotabuff URL, OpenDota URL) into a numerical Dota Account ID.
  */
 export function parseInputForAccountId(input: string): string | null {
@@ -66,7 +98,7 @@ export async function fetchHeroMap(): Promise<Record<number, HeroInfo>> {
   const map: Record<number, HeroInfo> = {};
 
   data.forEach((hero) => {
-    let iconUrl = 'https://placehold.co/32x32/374151/FFFFFF?text=?';
+    let iconUrl = 'https://placehold.co/32x32/334155/FFFFFF?text=?';
     if (hero.name) {
       const safeName = hero.name.replace('npc_dota_hero_', '');
       iconUrl = `${HERO_ASSET_BASE_URL}${safeName}.png`;
@@ -128,14 +160,14 @@ export function getRankIconUrl(rankTier: number | null | undefined): { url: stri
 }
 
 /**
- * Calculates winrate gradient color from Red (0%) -> Yellow (50%) -> Green (100%).
+ * Calculates winrate color: subtle muted indicator
  */
 export function getWinrateColor(wrText: string): string {
   let winrate = 0;
   try {
     winrate = parseFloat(wrText.replace('%', ''));
   } catch {
-    return 'rgb(75, 85, 99)';
+    return '#475569';
   }
 
   winrate = Math.min(100, Math.max(0, isNaN(winrate) ? 0 : winrate));
@@ -143,12 +175,12 @@ export function getWinrateColor(wrText: string): string {
 
   if (winrate <= 50) {
     const scale = winrate / 50;
-    r = 248;
-    g = Math.round(113 * scale);
+    r = 239;
+    g = Math.round(100 * scale);
   } else {
     const scale = (winrate - 50) / 50;
-    r = Math.round(248 * (1 - scale * 0.7));
-    g = Math.round(113 + (220 - 113) * scale);
+    r = Math.round(239 * (1 - scale * 0.75));
+    g = Math.round(100 + (210 - 100) * scale);
   }
 
   return `rgb(${r}, ${g}, 80)`;
@@ -183,7 +215,7 @@ export async function fetchHeroStats(
 
     if (!Array.isArray(playedHeroes) || playedHeroes.length === 0) {
       const message = lobbyType === LOBBY_TYPE_PRO
-        ? 'No tournament matches in the last 180 days.'
+        ? 'No tournament matches in last 180 days.'
         : (days ? 'No match data found for this period.' : 'No match data found.');
       return { success: false, message };
     }
@@ -198,7 +230,7 @@ export async function fetchHeroStats(
 
       return {
         name: heroInfo ? heroInfo.name : `Hero #${heroId}`,
-        iconUrl: heroInfo ? heroInfo.iconUrl : 'https://placehold.co/32x32/374151/FFFFFF?text=?',
+        iconUrl: heroInfo ? heroInfo.iconUrl : 'https://placehold.co/32x32/334155/FFFFFF?text=?',
         games,
         winrate,
         winCount: wins
@@ -208,7 +240,7 @@ export async function fetchHeroStats(
     return { success: true, heroes: topHeroes };
   } catch (error: unknown) {
     const err = error as Error;
-    return { success: false, message: `Error fetching hero stats: ${err?.message || 'Unknown'}` };
+    return { success: false, message: `Error: ${err?.message || 'Unknown'}` };
   }
 }
 
@@ -276,7 +308,7 @@ export async function fetchFullPlayerProfile(
   return {
     accountId,
     name: `Player ${accountId}`,
-    avatarUrl: 'https://placehold.co/40x40/374151/FFFFFF?text=!',
+    avatarUrl: 'https://placehold.co/40x40/334155/FFFFFF?text=!',
     rankUrl: getRankIconUrl(0),
     rankText: 'Error',
     allTime: { success: false, message: 'Could not fetch data after retries.' },
@@ -286,34 +318,33 @@ export async function fetchFullPlayerProfile(
 }
 
 /**
- * Formats all player results into a clean text summary for clipboard copying.
+ * Formats all player results into a clean text summary.
  */
 export function generateTextSummary(results: PlayerProfileResult[]): string {
-  let summary = "=== DOTA 2 HERO STATS SUMMARY ===\n\n";
+  let summary = "--- Dota 2 Hero Stats Summary ---\n\n";
 
   results.forEach((player, playerIndex) => {
-    summary += `[Position ${playerIndex + 1}] ${player.name} (ID: ${player.accountId} | Rank: ${player.rankText})\n`;
-    summary += `Dotabuff: https://www.dotabuff.com/players/${player.accountId}\n\n`;
+    summary += `=== Player ${playerIndex + 1}: ${player.name} (ID: ${player.accountId} | Rank: ${player.rankText}) ===\n\n`;
 
     const sections = [
       { title: "All-Time Heroes", data: player.allTime },
-      { title: "Last 30 Days", data: player.monthly },
-      { title: "Tournament / Pro Games (180d)", data: player.pro }
+      { title: "Last Month Heroes", data: player.monthly },
+      { title: "Recent Tournament Games", data: player.pro }
     ];
 
     sections.forEach((section) => {
-      summary += `  -- ${section.title} --\n`;
+      summary += `[ ${section.title} ]\n`;
       if (section.data.success && section.data.heroes && section.data.heroes.length > 0) {
         section.data.heroes.forEach((hero, index) => {
-          summary += `  ${String(index + 1).padStart(2)}. ${hero.name.padEnd(22)} | ${String(hero.games).padStart(3)} games | ${hero.winrate} WR\n`;
+          summary += `${String(index + 1).padStart(2)}. ${hero.name.padEnd(25)} ${String(hero.games).padEnd(5)} games | ${hero.winrate} WR\n`;
         });
       } else {
-        summary += `     ${section.data.message || 'No data'}\n`;
+        summary += `  ${section.data.message || 'No data'}\n`;
       }
       summary += "\n";
     });
 
-    summary += "--------------------------------------------------\n\n";
+    summary += "--------------------------------------\n\n";
   });
 
   return summary;

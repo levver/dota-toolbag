@@ -3,13 +3,12 @@ import { ActiveTab } from './types';
 import { Navigation } from './components/Navigation';
 import { HeroStatsPuller } from './components/HeroStatsPuller';
 import { VoiceReminder } from './components/VoiceReminder';
-import { Shield } from 'lucide-react';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('stats');
   const [isTimerRunning, setIsTimerRunning] = useState(false);
 
-  // Sync tab from URL
+  // Sync tab from URL on mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const tabParam = params.get('tab');
@@ -27,17 +26,16 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-dota-dark text-slate-100 flex flex-col selection:bg-red-600 selection:text-white">
-      {/* Shared Navigation Header */}
+    <div className="min-h-screen bg-tool-bg text-slate-100 flex flex-col font-sans">
+      {/* Navigation Header */}
       <Navigation
         activeTab={activeTab}
         setActiveTab={handleTabChange}
         isTimerRunning={isTimerRunning}
       />
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10">
-        {/* We keep VoiceReminder rendered (hidden when inactive) so running timers and Web Audio are NOT destroyed when switching tabs! */}
+      {/* Main Container */}
+      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <div className={activeTab === 'stats' ? 'block' : 'hidden'}>
           <HeroStatsPuller />
         </div>
@@ -50,19 +48,11 @@ export function App() {
         </div>
       </main>
 
-      {/* Shared Modern Footer */}
-      <footer className="border-t border-dota-border bg-dota-card/50 py-6 mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <div className="flex items-center space-x-2">
-            <Shield className="w-4 h-4 text-red-500" />
-            <span>Dota 2 Tactical Suite • Consolidated Web App</span>
-          </div>
-
-          <div className="flex items-center space-x-4">
-            <span>Powered by OpenDota & Web Audio APIs</span>
-            <span>•</span>
-            <span className="text-slate-400 font-mono">v1.0.0</span>
-          </div>
+      {/* Clean Utility Footer */}
+      <footer className="border-t border-tool-border bg-tool-surface/50 py-4 mt-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between text-xs text-slate-500">
+          <span>Dota Tools Suite</span>
+          <span className="font-mono">OpenDota & Web Audio</span>
         </div>
       </footer>
     </div>

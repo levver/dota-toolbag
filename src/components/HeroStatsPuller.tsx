@@ -5,6 +5,7 @@ import {
   fetchFullPlayerProfile,
   parseInputForAccountId,
   generateTextSummary,
+  copyTextToClipboard,
   getWinrateColor,
   POSITIONS,
   HeroInfo
@@ -15,9 +16,7 @@ import {
   Check,
   RotateCcw,
   ExternalLink,
-  Users,
   AlertCircle,
-  Sparkles,
   Info
 } from 'lucide-react';
 
@@ -30,7 +29,7 @@ export const HeroStatsPuller: React.FC = () => {
   const [message, setMessage] = useState<{ text: string; type: 'info' | 'success' | 'error' } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Initialize hero map and parse URL parameters
+  // Initialize hero map and parse URL parameters on initial load
   useEffect(() => {
     async function init() {
       try {
@@ -53,19 +52,18 @@ export const HeroStatsPuller: React.FC = () => {
 
         if (hasUrlIds) {
           setInputs(initialInputs);
-          // Auto-trigger fetch if url params are present
           const validIds = initialInputs
             .map(parseInputForAccountId)
             .filter((id): id is string => id !== null && id.length > 0);
 
           if (validIds.length > 0) {
-            executeFetch(validIds, map);
+            executeFetch(validIds, map, initialInputs);
           }
         }
       } catch (err) {
         console.error('Failed to load hero map:', err);
         setMessage({
-          text: 'Failed to load Dota 2 hero database from OpenDota. Please check your internet connection.',
+          text: 'Failed to load Dota 2 hero database from OpenDota.',
           type: 'error'
         });
       } finally {
@@ -80,22 +78,35 @@ export const HeroStatsPuller: React.FC = () => {
     const newInputs = [...inputs];
     newInputs[index] = value;
     setInputs(newInputs);
+    // Note: Do NOT update URL here; only update URL when Fetch / submit is pressed!
+  };
 
-    // Sync with URL params
+  const updateUrlParams = (currentInputs: string[]) => {
     const params = new URLSearchParams(window.location.search);
-    if (value.trim()) {
-      params.set(`id${index + 1}`, value.trim());
-    } else {
-      params.delete(`id${index + 1}`);
+    for (let i = 0; i < 5; i++) {
+      const val = currentInputs[i]?.trim();
+      if (val) {
+        params.set(`id${i + 1}`, val);
+      } else {
+        params.delete(`id${i + 1}`);
+      }
     }
-    const newUrl = `${window.location.pathname}${params.toString() ? '?' + params.toString() : ''}`;
+    const queryString = params.toString();
+    const newUrl = `${window.location.pathname}${queryString ? '?' + queryString : ''}`;
     window.history.replaceState({}, '', newUrl);
   };
 
-  const executeFetch = async (profileIds: string[], map = heroMap) => {
+  const executeFetch = async (
+    profileIds: string[],
+    map = heroMap,
+    currentInputs: string[] = inputs
+  ) => {
     setIsLoading(true);
     setMessage(null);
     setResults([]);
+
+    // Update URL query parameters on fetch press
+    updateUrlParams(currentInputs);
 
     const uniqueIds = Array.from(new Set(profileIds));
 
@@ -105,13 +116,13 @@ export const HeroStatsPuller: React.FC = () => {
 
       setResults(fetchedResults);
       setMessage({
-        text: `Successfully processed ${fetchedResults.length} profile${fetchedResults.length > 1 ? 's' : ''}.`,
+        text: `Processed ${fetchedResults.length} player profile${fetchedResults.length > 1 ? 's' : ''}.`,
         type: 'success'
       });
     } catch (err) {
       console.error('Fetch error:', err);
       setMessage({
-        text: 'An error occurred while fetching player data. OpenDota API may be experiencing rate limits.',
+        text: 'An error occurred while fetching player data from OpenDota.',
         type: 'error'
       });
     } finally {
@@ -133,136 +144,123 @@ export const HeroStatsPuller: React.FC = () => {
       return;
     }
 
-    executeFetch(validIds);
+    executeFetch(validIds, heroMap, inputs);
   };
 
   const handleClear = () => {
     setInputs(['', '', '', '', '']);
     setResults([]);
     setMessage(null);
-    const newUrl = window.location.pathname;
+    const params = new URLSearchParams(window.location.search);
+    for (let i = 1; i <= 5; i++) {
+      params.delete(`id${i}`);
+    }
+    const queryString = params.toString();
+    const newUrl = `${window.location.pathname}${queryString ? '?' + queryString : ''}`;
     window.history.replaceState({}, '', newUrl);
-  };
-
-  const handleLoadDemo = () => {
-    // Top Pro Dota Players: Yatoro (321580797), bpk / Topson (94054712), Collapse (302214028), Mira (256155000), Miposhka (113331514)
-    const demoIds = ['321580797', '94054712', '302214028', '256155000', '113331514'];
-    setInputs(demoIds);
-    executeFetch(demoIds);
   };
 
   const handleCopyClipboard = async () => {
     if (results.length === 0) return;
     const summary = generateTextSummary(results);
 
-    try {
-      await navigator.clipboard.writeText(summary);
+    const success = await copyTextToClipboard(summary);
+    if (success) {
       setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    } catch (err) {
-      console.error('Failed to copy to clipboard:', err);
+      setTimeout(() => setCopied(false), 2000);
+    } else {
       setMessage({
-        text: 'Failed to write to clipboard. Browser permission denied.',
+        text: 'Unable to copy text to clipboard automatically. Check console for output.',
         type: 'error'
       });
+      console.log('--- Summary Text ---\n', summary);
     }
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
-      {/* Header Banner */}
-      <div className="text-center space-y-2">
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-          Dota 2 Hero Profile Checker
-        </h1>
-        <p className="text-slate-400 text-sm sm:text-base max-w-2xl mx-auto">
-          Analyze hero pools, tournament stats, and winrates for all 5 roles simultaneously using Account IDs or Dotabuff URLs.
-        </p>
+    <div className="max-w-5xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-tool-border pb-4">
+        <div>
+          <h1 className="text-xl font-semibold text-slate-100 tracking-tight">
+            Hero Profile Checker
+          </h1>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Query player hero pools by Account ID or Dotabuff URL across all 5 positions.
+          </p>
+        </div>
       </div>
 
-      {/* Input Form Card */}
-      <div className="bg-dota-card rounded-2xl p-6 border border-dota-border shadow-xl space-y-6">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                <Users className="w-4 h-4 text-red-500" />
-                Team Lineup (5 Positions)
-              </label>
-              <div className="flex items-center space-x-2">
-                <button
-                  type="button"
-                  onClick={handleLoadDemo}
-                  className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 px-2.5 py-1 rounded-md bg-red-950/40 border border-red-800/40 hover:bg-red-900/40 transition"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Load Sample Team
-                </button>
-                <button
-                  type="button"
-                  onClick={handleClear}
-                  className="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-800/80 border border-slate-700 hover:bg-slate-700/80 transition"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  Clear
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
-              {POSITIONS.map((posName, idx) => (
-                <div key={idx} className="space-y-1">
-                  <div className="text-[11px] font-semibold text-slate-400 truncate">
-                    {posName}
-                  </div>
-                  <input
-                    type="text"
-                    value={inputs[idx]}
-                    onChange={(e) => handleInputChange(idx, e.target.value)}
-                    placeholder={`ID or Dotabuff`}
-                    className="w-full bg-dota-dark text-slate-100 placeholder-slate-600 border border-dota-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition duration-150"
-                  />
-                </div>
-              ))}
-            </div>
+      {/* Input Control Box */}
+      <div className="bg-tool-card rounded-xl p-5 border border-tool-border shadow-sm space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+              Player Slots
+            </span>
+            <button
+              type="button"
+              onClick={handleClear}
+              className="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1 px-2 py-1 rounded bg-slate-800 border border-slate-700 hover:bg-slate-700 transition"
+            >
+              <RotateCcw className="w-3 h-3" />
+              Clear All
+            </button>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+            {POSITIONS.map((posLabel, idx) => (
+              <div key={idx} className="space-y-1">
+                <label className="text-[11px] font-medium text-slate-400 block truncate">
+                  {posLabel}
+                </label>
+                <input
+                  type="text"
+                  value={inputs[idx]}
+                  onChange={(e) => handleInputChange(idx, e.target.value)}
+                  placeholder="ID or Dotabuff"
+                  className="w-full bg-tool-bg text-slate-100 placeholder-slate-600 border border-tool-border rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500 transition"
+                />
+              </div>
+            ))}
+          </div>
+
+          <div className="pt-1">
             <button
               type="submit"
               disabled={isLoading || heroMapLoading}
-              className="flex-1 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-semibold py-3 px-6 rounded-xl shadow-lg shadow-red-950/50 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150"
+              className="w-full bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-medium text-xs py-2.5 px-4 rounded-lg shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition"
             >
               {isLoading ? (
                 <>
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  <span>Pulling Hero Profiles...</span>
+                  <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <span>Fetching Profiles...</span>
                 </>
               ) : (
                 <>
-                  <Search className="w-5 h-5" />
-                  <span>Fetch Most Played Heroes</span>
+                  <Search className="w-3.5 h-3.5" />
+                  <span>Get Most Played Heroes</span>
                 </>
               )}
             </button>
           </div>
         </form>
 
-        {/* System Message Alert */}
+        {/* Message Alert */}
         {message && (
           <div
-            className={`p-4 rounded-xl text-sm flex items-start gap-3 border ${
+            className={`p-3 rounded-lg text-xs flex items-center gap-2.5 border ${
               message.type === 'error'
-                ? 'bg-red-950/40 border-red-800/60 text-red-300'
+                ? 'bg-rose-950/40 border-rose-800/60 text-rose-300'
                 : message.type === 'success'
                 ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-300'
-                : 'bg-blue-950/40 border-blue-800/60 text-blue-300'
+                : 'bg-slate-800/60 border-slate-700 text-slate-300'
             }`}
           >
             {message.type === 'error' ? (
-              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
             ) : (
-              <Info className="w-5 h-5 flex-shrink-0 mt-0.5" />
+              <Info className="w-4 h-4 flex-shrink-0" />
             )}
             <span>{message.text}</span>
           </div>
@@ -271,32 +269,31 @@ export const HeroStatsPuller: React.FC = () => {
 
       {/* Results Section */}
       {results.length > 0 && (
-        <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-2 border-b border-dota-border">
-            <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-              <Users className="w-6 h-6 text-red-500" />
-              Player Hero Stats ({results.length})
+        <div className="space-y-4">
+          <div className="flex items-center justify-between pt-2">
+            <h2 className="text-sm font-semibold text-slate-200 uppercase tracking-wider">
+              Results ({results.length})
             </h2>
 
             <button
               onClick={handleCopyClipboard}
-              className="w-full sm:w-auto px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold rounded-xl border border-dota-border shadow-md flex items-center justify-center gap-2 transition duration-150"
+              className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg border border-slate-700 flex items-center gap-1.5 transition"
             >
               {copied ? (
                 <>
-                  <Check className="w-4 h-4 text-emerald-400" />
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
                   <span className="text-emerald-400">Copied to Clipboard!</span>
                 </>
               ) : (
                 <>
-                  <Copy className="w-4 h-4 text-slate-300" />
-                  <span>Copy Formatted Summary</span>
+                  <Copy className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Copy All Results to Clipboard</span>
                 </>
               )}
             </button>
           </div>
 
-          <div className="grid grid-cols-1 gap-6">
+          <div className="space-y-4">
             {results.map((player, pIdx) => {
               const overallSuccess =
                 player.allTime.success || player.monthly.success || player.pro.success;
@@ -304,90 +301,74 @@ export const HeroStatsPuller: React.FC = () => {
               return (
                 <div
                   key={player.accountId + pIdx}
-                  className={`bg-dota-card rounded-2xl p-6 border ${
-                    overallSuccess ? 'border-dota-border' : 'border-red-800/50 bg-red-950/10'
-                  } shadow-xl space-y-6`}
+                  className={`bg-tool-card rounded-xl p-4 sm:p-5 border ${
+                    overallSuccess ? 'border-tool-border' : 'border-rose-900/60 bg-rose-950/10'
+                  } space-y-4`}
                 >
-                  {/* Player Header */}
-                  <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800">
-                    <div className="flex items-center space-x-4 min-w-0">
+                  {/* Player Details Bar */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-tool-borderSubtle">
+                    <div className="flex items-center space-x-3 min-w-0">
                       <img
                         src={player.avatarUrl}
                         alt={player.name}
-                        className="w-12 h-12 rounded-full object-cover border-2 border-red-500 flex-shrink-0 shadow-md"
+                        className="w-9 h-9 rounded-md object-cover border border-slate-700 flex-shrink-0"
                         onError={(e) => {
-                          (e.target as HTMLElement).setAttribute('src', 'https://placehold.co/48x48/1e293b/FFFFFF?text=P');
+                          (e.target as HTMLElement).setAttribute(
+                            'src',
+                            'https://placehold.co/36x36/1e293b/FFFFFF?text=P'
+                          );
                         }}
                       />
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-red-400 uppercase tracking-wide bg-red-950/60 px-2 py-0.5 rounded border border-red-800/40">
-                            Pos {pIdx + 1}
+                          <span className="text-[10px] font-mono font-semibold text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
+                            Slot {pIdx + 1}
                           </span>
-                          <h3 className="text-xl font-bold text-white truncate max-w-[200px] sm:max-w-md">
+                          <span className="text-sm font-semibold text-white truncate max-w-[200px] sm:max-w-md">
                             {player.name}
-                          </h3>
+                          </span>
                         </div>
-                        <div className="flex items-center gap-3 text-xs text-slate-400 mt-1">
+                        <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
                           <span>ID: {player.accountId}</span>
                           <span>•</span>
                           <a
                             href={`https://www.dotabuff.com/players/${player.accountId}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-red-400 hover:text-red-300 flex items-center gap-1"
+                            className="text-blue-400 hover:text-blue-300 flex items-center gap-0.5"
                           >
-                            Dotabuff <ExternalLink className="w-3 h-3" />
-                          </a>
-                          <span>•</span>
-                          <a
-                            href={`https://www.opendota.com/players/${player.accountId}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-slate-400 hover:text-slate-200 flex items-center gap-1"
-                          >
-                            OpenDota <ExternalLink className="w-3 h-3" />
+                            Dotabuff <ExternalLink className="w-2.5 h-2.5" />
                           </a>
                         </div>
                       </div>
                     </div>
 
                     {/* Rank Badge */}
-                    <div className="flex items-center gap-2 bg-dota-dark/80 px-3.5 py-2 rounded-xl border border-dota-border">
+                    <div className="flex items-center gap-2 bg-tool-bg px-2.5 py-1.5 rounded-lg border border-tool-borderSubtle">
                       <img
                         src={player.rankUrl.url}
                         alt={player.rankText}
-                        className="w-10 h-10 object-contain"
+                        className="w-7 h-7 object-contain"
                         onError={(e) => {
-                          (e.target as HTMLElement).setAttribute('src', 'https://placehold.co/40x40/374151/FFFFFF?text=R');
+                          (e.target as HTMLElement).setAttribute(
+                            'src',
+                            'https://placehold.co/28x28/334155/FFFFFF?text=R'
+                          );
                         }}
                       />
                       <div className="text-right">
-                        <div className="text-[10px] text-slate-400 font-semibold uppercase">Current Rank</div>
-                        <div className="text-xs font-bold text-white">{player.rankText}</div>
+                        <div className="text-[11px] font-medium text-slate-200">
+                          {player.rankText}
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Hero Stat Columns (All-Time, 30 Days, Tournament) */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* All-Time Column */}
-                    <StatColumn
-                      title="All-Time Heroes"
-                      data={player.allTime}
-                    />
-
-                    {/* Last Month Column */}
-                    <StatColumn
-                      title="Last Month (30 Days)"
-                      data={player.monthly}
-                    />
-
-                    {/* Pro / Tournament Column */}
-                    <StatColumn
-                      title="Tournament Games (180 Days)"
-                      data={player.pro}
-                    />
+                  {/* 3 Columns */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <StatColumn title="All-Time Heroes" data={player.allTime} />
+                    <StatColumn title="Last Month Heroes" data={player.monthly} />
+                    <StatColumn title="Recent Tournament Games" data={player.pro} />
                   </div>
                 </div>
               );
@@ -415,53 +396,53 @@ interface StatColumnProps {
 
 const StatColumn: React.FC<StatColumnProps> = ({ title, data }) => {
   return (
-    <div className="bg-dota-dark/60 rounded-xl p-4 border border-slate-800/80 flex flex-col justify-between">
+    <div className="bg-tool-bg rounded-lg p-3 border border-tool-borderSubtle flex flex-col justify-between">
       <div>
-        <h4 className="text-sm font-bold text-slate-200 uppercase tracking-wider pb-2 mb-3 border-b border-slate-800 flex items-center justify-between">
+        <div className="text-xs font-semibold text-slate-300 pb-2 mb-2 border-b border-tool-borderSubtle flex items-center justify-between">
           <span>{title}</span>
           {data.success && data.heroes && (
-            <span className="text-[11px] font-normal text-slate-400">
+            <span className="text-[10px] text-slate-500 font-mono">
               Top {data.heroes.length}
             </span>
           )}
-        </h4>
+        </div>
 
         {data.success && data.heroes && data.heroes.length > 0 ? (
-          <ul className="space-y-2">
+          <ul className="space-y-1.5">
             {data.heroes.map((hero, index) => {
               const wrBg = getWinrateColor(hero.winrate);
 
               return (
                 <li
                   key={index}
-                  className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-800/50 transition duration-150"
+                  className="flex items-center justify-between py-0.5 text-xs text-slate-300 hover:text-white"
                 >
-                  <div className="flex items-center space-x-2.5 min-w-0 pr-2">
-                    <span className="text-xs font-semibold text-slate-500 w-4 text-right">
+                  <div className="flex items-center space-x-2 min-w-0 pr-2">
+                    <span className="text-[11px] font-mono text-slate-500 w-3.5 text-right">
                       {index + 1}.
                     </span>
                     <img
                       src={hero.iconUrl}
                       alt={hero.name}
-                      className="w-8 h-8 rounded-md object-cover border border-slate-700 flex-shrink-0"
+                      className="w-6 h-6 rounded object-cover border border-slate-700 flex-shrink-0"
                       onError={(e) => {
                         (e.target as HTMLElement).setAttribute(
                           'src',
-                          'https://placehold.co/32x32/374151/FFFFFF?text=?'
+                          'https://placehold.co/24x24/334155/FFFFFF?text=?'
                         );
                       }}
                     />
-                    <span className="text-xs font-medium text-slate-200 truncate" title={hero.name}>
+                    <span className="text-xs truncate font-medium" title={hero.name}>
                       {hero.name}
                     </span>
                   </div>
 
                   <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <span className="text-[11px] font-mono bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700">
+                    <span className="text-[10px] font-mono bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded border border-slate-700">
                       {hero.games}g
                     </span>
                     <span
-                      className="text-[11px] font-mono font-bold px-2 py-0.5 rounded text-black text-center min-w-[42px]"
+                      className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded text-black text-center min-w-[38px]"
                       style={{ backgroundColor: wrBg }}
                     >
                       {hero.winrate}
@@ -472,8 +453,8 @@ const StatColumn: React.FC<StatColumnProps> = ({ title, data }) => {
             })}
           </ul>
         ) : (
-          <div className="h-40 flex items-center justify-center text-center p-4 text-xs text-slate-400 bg-slate-900/40 rounded-lg">
-            {data.message || 'No match statistics available.'}
+          <div className="h-28 flex items-center justify-center text-center p-2 text-[11px] text-slate-500">
+            {data.message || 'No data'}
           </div>
         )}
       </div>

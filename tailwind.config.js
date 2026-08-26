@@ -7,20 +7,22 @@ export default {
   theme: {
     extend: {
       colors: {
-        dota: {
-          dark: '#0B0F19',
-          card: '#151D2A',
-          cardHover: '#1C2638',
-          border: '#2A374A',
-          red: '#DC2626',
-          redHover: '#B91C1C',
-          gold: '#F59E0B',
-          accent: '#E11D48'
+        tool: {
+          bg: '#0b0f19',
+          surface: '#131b2e',
+          card: '#162036',
+          hover: '#1c2844',
+          border: '#24324f',
+          borderSubtle: '#1b253b',
+          primary: '#3b82f6',
+          primaryHover: '#2563eb',
+          danger: '#ef4444',
+          dangerHover: '#dc2626'
         }
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        mono: ['"Share Tech Mono"', 'monospace', 'Courier New'],
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        mono: ['"Share Tech Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       }
     },
   },
