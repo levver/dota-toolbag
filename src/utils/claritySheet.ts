@@ -54,6 +54,50 @@ export function getRankFromMmr(mmr: number | null): string {
 }
 
 /**
+ * Parses raw CSV text into a 2D string array.
+ */
+export function parseCsv(csvText: string): Array<Array<string>> {
+  const rows: Array<Array<string>> = [];
+  let currentRow: string[] = [];
+  let currentCell = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < csvText.length; i++) {
+    const char = csvText[i];
+    const nextChar = csvText[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        currentCell += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      currentRow.push(currentCell.trim());
+      currentCell = '';
+    } else if ((char === '\r' || char === '\n') && !inQuotes) {
+      if (char === '\r' && nextChar === '\n') i++;
+      currentRow.push(currentCell.trim());
+      if (currentRow.some((c) => c.length > 0)) {
+        rows.push(currentRow);
+      }
+      currentRow = [];
+      currentCell = '';
+    } else {
+      currentCell += char;
+    }
+  }
+  if (currentCell.length > 0 || currentRow.length > 0) {
+    currentRow.push(currentCell.trim());
+    if (currentRow.some((c) => c.length > 0)) {
+      rows.push(currentRow);
+    }
+  }
+  return rows;
+}
+
+/**
  * Validates and extracts Spreadsheet ID and optional gid from Google Sheets URL.
  */
 export function extractSpreadsheetInfo(url: string): { spreadsheetId: string | null; gid: string | null } {
@@ -97,20 +141,45 @@ export function getTabNameCandidates(divisionNumber: number): string[] {
 }
 
 /**
- * Fetches Google Sheet tab data using HTML export to preserve all hyperlink URLs (<a href="...">).
+ * Fetches Google Sheet tab data using CSV/HTML export.
  */
-export async function fetchGoogleSheetHtmlGrid(
+export async function fetchGoogleSheetTabData(
   spreadsheetId: string,
   tabNameOrGid: { tabName?: string; gid?: string }
 ): Promise<Array<Array<CellData>>> {
-  let url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:html`;
-  if (tabNameOrGid.tabName) {
-    url += `&sheet=${encodeURIComponent(tabNameOrGid.tabName)}`;
-  } else if (tabNameOrGid.gid) {
-    url += `&gid=${tabNameOrGid.gid}`;
+  // Strategy 1: GViz CSV export
+  const tabParam = tabNameOrGid.tabName
+    ? `&sheet=${encodeURIComponent(tabNameOrGid.tabName)}`
+    : (tabNameOrGid.gid ? `&gid=${tabNameOrGid.gid}` : '');
+
+  const csvUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv${tabParam}`;
+
+  try {
+    const res = await fetch(csvUrl);
+    if (res.ok) {
+      const csvText = await res.text();
+      if (!csvText.includes('google.visualization.Query.setResponse') && csvText.length > 50) {
+        const rawGrid = parseCsv(csvText);
+        if (rawGrid.length > 0) {
+          return rawGrid.map((row) =>
+            row.map((cell) => {
+              const accountId = extractDotaAccountId(cell);
+              return {
+                text: cell,
+                href: accountId ? `https://www.dotabuff.com/players/${accountId}` : undefined,
+              };
+            })
+          );
+        }
+      }
+    }
+  } catch (e) {
+    // fallback
   }
 
-  const response = await fetch(url);
+  // Strategy 2: GViz HTML export
+  const htmlUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:html${tabParam}`;
+  const response = await fetch(htmlUrl);
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}: Failed to fetch sheet tab.`);
   }
@@ -153,7 +222,7 @@ let masterPlayerMapCache: {
 } | null = null;
 
 /**
- * Fetches the master account list / player list tab from the sheet to resolve VLOOKUP formulas.
+ * Fetches the master account list / player list tab from the sheet to resolve lookup statements.
  */
 export async function fetchMasterPlayerMap(
   spreadsheetId: string
@@ -167,11 +236,18 @@ export async function fetchMasterPlayerMap(
   const masterTabCandidates = [
     '05 _ Full Account List',
     '05_Full Account List',
+    '05 - Full Account List',
     'Full Account List',
     '04a _ Player List',
     '04a_Player List',
+    '04a - Player List',
     '04b _ Player List (MMR Sorted)',
     '04b_Player List (MMR Sorted)',
+    '04b - Player List (MMR Sorted)',
+    '03 _ Final Responses',
+    '03_Final Responses',
+    '03 - Final Responses',
+    'Final Responses',
     'Player List',
     'Players',
     'Accounts',
@@ -180,7 +256,7 @@ export async function fetchMasterPlayerMap(
 
   for (const tabName of masterTabCandidates) {
     try {
-      const grid = await fetchGoogleSheetHtmlGrid(spreadsheetId, { tabName });
+      const grid = await fetchGoogleSheetTabData(spreadsheetId, { tabName });
       if (grid && grid.length > 1) {
         grid.forEach((row) => {
           let foundId: string | null = null;
@@ -241,8 +317,8 @@ export async function fetchMasterPlayerMap(
           }
         });
 
-        if (map.size > 10) {
-          break; // Found good master list
+        if (map.size >= 5) {
+          break; // Found master tab with accounts
         }
       }
     } catch (e) {
@@ -280,7 +356,7 @@ export async function importTeamFromClaritySheet(
   // 1. Try URL's gid first if provided
   if (gid) {
     try {
-      sheetGrid = await fetchGoogleSheetHtmlGrid(spreadsheetId, { gid });
+      sheetGrid = await fetchGoogleSheetTabData(spreadsheetId, { gid });
       usedTabName = `gid=${gid}`;
     } catch (e) {
       // fallback to tab names
@@ -291,7 +367,7 @@ export async function importTeamFromClaritySheet(
   if (!sheetGrid || sheetGrid.length === 0) {
     for (const tabName of tabCandidates) {
       try {
-        sheetGrid = await fetchGoogleSheetHtmlGrid(spreadsheetId, { tabName });
+        sheetGrid = await fetchGoogleSheetTabData(spreadsheetId, { tabName });
         usedTabName = tabName;
         if (sheetGrid && sheetGrid.length > 0) break;
       } catch (e) {
@@ -310,44 +386,74 @@ export async function importTeamFromClaritySheet(
   // Also fetch the master player map asynchronously to resolve VLOOKUP / DB Link formulas
   const masterPlayerMap = await fetchMasterPlayerMap(spreadsheetId);
 
-  // Find all cells matching the captain's name
-  interface MatchLocation {
+  // Find all cells matching the captain's name and score them to find the true TEAM BLOCK (not the summary table)
+  interface TeamMatch {
     row: number;
     col: number;
     text: string;
-    isTeamBlock: boolean;
+    score: number;
   }
 
-  const matches: MatchLocation[] = [];
+  const candidates: TeamMatch[] = [];
 
   for (let r = 0; r < sheetGrid.length; r++) {
     for (let c = 0; c < sheetGrid[r].length; c++) {
       const cellText = sheetGrid[r][c].text.toLowerCase();
-      if (cellText && (cellText === cleanCaptain || cellText.includes(cleanCaptain) || (cleanCaptain.includes(cellText) && cellText.length >= 3))) {
-        // Check if header row above or nearby contains "Player", "MMR", "Dotabuff"
+      if (
+        cellText &&
+        (cellText === cleanCaptain ||
+          cellText.includes(cleanCaptain) ||
+          (cleanCaptain.includes(cellText) && cellText.length >= 3))
+      ) {
+        let score = 0;
+        const row = sheetGrid[r];
+        const nextCell1 = row[c + 1]?.text || '';
+        const nextCell2 = row[c + 2]?.text.toLowerCase() || '';
         const prevRow = r > 0 ? sheetGrid[r - 1] : [];
-        const isHeaderAbove = prevRow.some(
-          (cell) =>
-            cell.text.toLowerCase().includes('mmr') ||
-            cell.text.toLowerCase().includes('player') ||
-            cell.text.toLowerCase().includes('dotabuff')
+
+        // 1. Cell to the right (c + 1) is a numeric MMR (e.g. 2326, 2950)
+        if (/^\d{3,5}$/.test(nextCell1.trim())) {
+          score += 20;
+        }
+
+        // 2. Cell at (c + 2) is "DB Link" or "Dotabuff"
+        if (nextCell2.includes('db') || nextCell2.includes('dotabuff') || nextCell2.includes('link') || row[c + 2]?.href) {
+          score += 20;
+        }
+
+        // 3. Header row directly above (r - 1) has "Player", "MMR", or "Dotabuff"
+        const prevHeaderMatch = prevRow.some(
+          (h) =>
+            h.text.toLowerCase().includes('mmr') ||
+            h.text.toLowerCase().includes('player') ||
+            h.text.toLowerCase().includes('dotabuff')
         );
-        matches.push({
+        if (prevHeaderMatch) {
+          score += 25;
+        }
+
+        // 4. Penalty if in summary table on the left (e.g. next cell is a team name like "Shifting Paradigms")
+        if (nextCell1.length > 5 && !/^\d+$/.test(nextCell1)) {
+          score -= 15;
+        }
+
+        candidates.push({
           row: r,
           col: c,
           text: sheetGrid[r][c].text,
-          isTeamBlock: isHeaderAbove,
+          score,
         });
       }
     }
   }
 
-  if (matches.length === 0) {
+  if (candidates.length === 0) {
     throw new Error(`Could not locate captain "${captainQuery}" in Division ${divisionNumber} tab (${usedTabName}). Please check spelling.`);
   }
 
-  // Prioritize team block matches (where captain is the top player of the 5-player group)
-  const bestMatch = matches.find((m) => m.isTeamBlock) || matches[0];
+  // Sort by highest score to pick the true 5-player team block
+  candidates.sort((a, b) => b.score - a.score);
+  const bestMatch = candidates[0];
   const captainRow = bestMatch.row;
   const captainCol = bestMatch.col;
   const matchedCaptainName = bestMatch.text || captainQuery;
@@ -405,7 +511,7 @@ export async function importTeamFromClaritySheet(
       if (foundId) foundUrl = dbCell.href;
     }
 
-    // 2. From dbCell text if it has a URL
+    // 2. From dbCell text if it has a URL or ID
     if (!foundId && dbCell.text) {
       foundId = extractDotaAccountId(dbCell.text);
       if (foundId) foundUrl = dbCell.text;
@@ -413,7 +519,8 @@ export async function importTeamFromClaritySheet(
 
     // 3. Look up player name in master player map (resolves VLOOKUP / lookup statements)
     if (!foundId && pName) {
-      const masterInfo = masterPlayerMap.get(pName.toLowerCase());
+      const cleanKey = pName.toLowerCase();
+      const masterInfo = masterPlayerMap.get(cleanKey);
       if (masterInfo) {
         foundId = masterInfo.accountId;
         foundUrl = masterInfo.dotabuffUrl;
@@ -421,7 +528,7 @@ export async function importTeamFromClaritySheet(
       } else {
         // Partial/fuzzy match across master player map keys
         for (const [key, val] of masterPlayerMap.entries()) {
-          if (key.includes(pName.toLowerCase()) || pName.toLowerCase().includes(key)) {
+          if (key === cleanKey || key.includes(cleanKey) || cleanKey.includes(key)) {
             foundId = val.accountId;
             foundUrl = val.dotabuffUrl;
             if (!mmrNum && val.mmr) mmrNum = val.mmr;
