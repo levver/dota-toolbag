@@ -22,12 +22,9 @@ export const Navigation: React.FC<NavigationProps> = ({
             onClick={() => setActiveTab('stats')}
           >
             <img
-              src="https://liquipedia.net/commons/images/thumb/7/76/Jidi_Pollen_Bag_itemicon_dota2_gameasset.png/60px-Jidi_Pollen_Bag_itemicon_dota2_gameasset.png"
+              src="/logo.png"
               alt="levver's toolbag"
               className="w-6 h-6 rounded-bespoke object-contain"
-              onError={(e) => {
-                (e.target as HTMLElement).style.display = 'none';
-              }}
             />
             <span className="font-semibold text-sm text-canvas-text tracking-tight">
               levver's toolbag
