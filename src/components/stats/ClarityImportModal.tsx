@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ClarityPlayerItem, ClarityTeamResult, importTeamFromClaritySheet } from '../../utils/claritySheet';
 import { POSITIONS } from '../../utils/openDota';
-import { X, FileSpreadsheet, ArrowRight, Check } from 'lucide-react';
+import { X, FileSpreadsheet, ArrowRight, Check, ExternalLink } from 'lucide-react';
 import { storage } from '../../utils/storage';
 
 interface ClarityImportModalProps {
@@ -58,13 +58,6 @@ export const ClarityImportModal: React.FC<ClarityImportModalProps> = ({
     }
 
     updated[playerIndex].assignedPosition = newPosition;
-    setAssignedPlayers(updated);
-  };
-
-  const handlePlayerIdChange = (playerIndex: number, newId: string) => {
-    const updated = [...assignedPlayers];
-    updated[playerIndex].accountId = newId;
-    updated[playerIndex].dotabuffUrl = newId;
     setAssignedPlayers(updated);
   };
 
@@ -206,35 +199,64 @@ export const ClarityImportModal: React.FC<ClarityImportModalProps> = ({
                 Assign each player to their intended lineup position (Pos 1–5):
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {assignedPlayers.map((player, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center gap-2 p-2.5 bg-canvas-subtle rounded-bespoke border border-canvas-border text-xs"
+                    className="flex items-center justify-between gap-3 p-2.5 bg-canvas-subtle rounded-bespoke border border-canvas-border text-xs"
                   >
                     {/* Position Selector */}
-                    <select
-                      value={player.assignedPosition}
-                      onChange={(e) => handlePositionChange(idx, parseInt(e.target.value, 10))}
-                      className="bg-canvas-card border border-canvas-borderLight rounded-bespoke px-2 py-1 text-xs text-palette-red-text font-bold focus:outline-none focus:border-palette-red"
-                    >
-                      {POSITIONS.map((pos, pIndex) => (
-                        <option key={pIndex + 1} value={pIndex + 1}>
-                          Pos {pIndex + 1} ({pos.split(' ')[0]})
-                        </option>
-                      ))}
-                    </select>
+                    <div className="flex items-center space-x-2.5 min-w-0">
+                      <select
+                        value={player.assignedPosition}
+                        onChange={(e) => handlePositionChange(idx, parseInt(e.target.value, 10))}
+                        className="bg-canvas-card border border-palette-red-border text-palette-red-text rounded-bespoke px-2 py-1 text-xs font-bold focus:outline-none focus:border-palette-red flex-shrink-0"
+                      >
+                        {POSITIONS.map((pos, pIndex) => (
+                          <option key={pIndex + 1} value={pIndex + 1}>
+                            Pos {pIndex + 1} ({pos.split(' ')[0]})
+                          </option>
+                        ))}
+                      </select>
 
-                    {/* Player Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-canvas-text truncate">{player.name}</div>
-                      <input
-                        type="text"
-                        value={player.accountId || player.dotabuffUrl || ''}
-                        onChange={(e) => handlePlayerIdChange(idx, e.target.value)}
-                        placeholder="Account ID or Dotabuff URL"
-                        className="w-full mt-0.5 px-2 py-0.5 bg-canvas-card border border-canvas-borderLight rounded-bespoke-sm text-[11px] text-canvas-muted focus:text-canvas-text focus:outline-none"
-                      />
+                      {/* Player Info (Name and Link indicator) */}
+                      <div className="min-w-0">
+                        <div className="font-semibold text-canvas-text truncate flex items-center gap-1.5">
+                          <span>{player.name}</span>
+                          {idx === 0 && (
+                            <span className="text-[9px] font-mono uppercase bg-palette-red-subtle text-palette-red-text px-1 rounded-bespoke-sm border border-palette-red-border">
+                              Captain
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-canvas-muted mt-0.5 flex items-center gap-1.5">
+                          {player.accountId ? (
+                            <>
+                              <span>ID: <span className="font-mono text-zinc-300">{player.accountId}</span></span>
+                              {player.dotabuffUrl && (
+                                <a
+                                  href={player.dotabuffUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-palette-red-accent hover:underline flex items-center gap-0.5 ml-1"
+                                >
+                                  <span>DB</span>
+                                  <ExternalLink className="w-2.5 h-2.5" />
+                                </a>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-palette-gold-text">No Dotabuff linked</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Rank Badge / MMR */}
+                    <div className="flex items-center gap-1.5 bg-canvas-card px-2.5 py-1 rounded-bespoke border border-canvas-borderLight text-xs flex-shrink-0">
+                      <span className="text-[11px] text-zinc-200 font-medium">
+                        {player.rankText}
+                      </span>
                     </div>
                   </div>
                 ))}

@@ -1,7 +1,7 @@
-import { parseInputForAccountId } from './openDota';
-
 export interface ClarityPlayerItem {
   name: string;
+  mmr: number | null;
+  rankText: string;
   dotabuffUrl: string;
   accountId: string | null;
   assignedPosition: number; // 1 to 5
@@ -16,6 +16,41 @@ export interface ClarityTeamResult {
 export interface CellData {
   text: string;
   href?: string;
+}
+
+/**
+ * Extracts numerical Dota 2 account ID from Dotabuff / OpenDota URL or Google redirect URL.
+ */
+export function extractDotaAccountId(hrefOrText: string): string | null {
+  if (!hrefOrText) return null;
+  try {
+    const decoded = decodeURIComponent(hrefOrText);
+    const match =
+      decoded.match(/(?:dotabuff\.com|opendota\.com)\/players\/(\d+)/i) ||
+      decoded.match(/players\/(\d+)/i);
+    if (match && match[1]) {
+      return match[1];
+    }
+  } catch (e) {
+    const match = hrefOrText.match(/players\/(\d+)/i);
+    if (match && match[1]) return match[1];
+  }
+  return null;
+}
+
+/**
+ * Computes approximate Dota 2 rank badge text from MMR.
+ */
+export function getRankFromMmr(mmr: number | null): string {
+  if (!mmr || isNaN(mmr) || mmr <= 0) return 'Unranked';
+  if (mmr < 770) return `Herald (${mmr.toLocaleString()})`;
+  if (mmr < 1540) return `Guardian (${mmr.toLocaleString()})`;
+  if (mmr < 2310) return `Crusader (${mmr.toLocaleString()})`;
+  if (mmr < 3080) return `Archon (${mmr.toLocaleString()})`;
+  if (mmr < 3850) return `Legend (${mmr.toLocaleString()})`;
+  if (mmr < 4620) return `Ancient (${mmr.toLocaleString()})`;
+  if (mmr < 5420) return `Divine (${mmr.toLocaleString()})`;
+  return `Immortal (${mmr.toLocaleString()})`;
 }
 
 /**
@@ -41,8 +76,8 @@ export function getTabNameCandidates(divisionNumber: number): string[] {
   const divLetters = ['', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
   const letter = divLetters[divisionNumber] || '';
 
-  const candidates = [
-    // Clarity Season 17 format: "06d _ Division 4"
+  return [
+    // Clarity Season format: "06d _ Division 4"
     `06${letter} _ Division ${divisionNumber}`,
     `06${letter}_Division ${divisionNumber}`,
     `06${letter} - Division ${divisionNumber}`,
@@ -59,8 +94,6 @@ export function getTabNameCandidates(divisionNumber: number): string[] {
     `Division${divisionNumber}`,
     `D${divisionNumber}`,
   ];
-
-  return candidates;
 }
 
 /**
@@ -134,7 +167,7 @@ export async function importTeamFromClaritySheet(
   let usedTabName = '';
   let lastError: Error | null = null;
 
-  // 1. Try URL's gid first if division is unspecified or matches
+  // 1. Try URL's gid first if provided
   if (gid) {
     try {
       sheetGrid = await fetchGoogleSheetHtmlGrid(spreadsheetId, { gid });
@@ -164,7 +197,7 @@ export async function importTeamFromClaritySheet(
     );
   }
 
-  // Find all cells containing captain's name
+  // Find all cells matching the captain's name
   interface MatchLocation {
     row: number;
     col: number;
@@ -177,10 +210,15 @@ export async function importTeamFromClaritySheet(
   for (let r = 0; r < sheetGrid.length; r++) {
     for (let c = 0; c < sheetGrid[r].length; c++) {
       const cellText = sheetGrid[r][c].text.toLowerCase();
-      if (cellText && (cellText === cleanCaptain || cellText.includes(cleanCaptain) || cleanCaptain.includes(cellText) && cellText.length >= 3)) {
-        // Check if this row or previous row has headers like "Player" / "MMR" / "Dotabuff" nearby
+      if (cellText && (cellText === cleanCaptain || cellText.includes(cleanCaptain) || (cleanCaptain.includes(cellText) && cellText.length >= 3))) {
+        // Check if header row above or nearby contains "Player", "MMR", "Dotabuff"
         const prevRow = r > 0 ? sheetGrid[r - 1] : [];
-        const isHeaderAbove = prevRow.some((cell) => cell.text.toLowerCase().includes('mmr') || cell.text.toLowerCase().includes('player') || cell.text.toLowerCase().includes('dotabuff'));
+        const isHeaderAbove = prevRow.some(
+          (cell) =>
+            cell.text.toLowerCase().includes('mmr') ||
+            cell.text.toLowerCase().includes('player') ||
+            cell.text.toLowerCase().includes('dotabuff')
+        );
         matches.push({
           row: r,
           col: c,
@@ -192,92 +230,118 @@ export async function importTeamFromClaritySheet(
   }
 
   if (matches.length === 0) {
-    throw new Error(`Could not locate captain "${captainQuery}" in Division ${divisionNumber} tab (${usedTabName}). Please check the spelling.`);
+    throw new Error(`Could not locate captain "${captainQuery}" in Division ${divisionNumber} tab (${usedTabName}). Please check spelling.`);
   }
 
-  // Prioritize team block matches (where captain is the top player of the 5-player roster)
+  // Prioritize team block matches (where captain is the top player of the 5-player group)
   const bestMatch = matches.find((m) => m.isTeamBlock) || matches[0];
   const captainRow = bestMatch.row;
   const captainCol = bestMatch.col;
   const matchedCaptainName = bestMatch.text || captainQuery;
 
-  // Extract up to 5 players starting from the captain row
-  const discoveredPlayers: ClarityPlayerItem[] = [];
+  // Detect column mapping for this team block (Player Col, MMR Col, DB Col)
+  let playerCol = captainCol;
+  let mmrCol = captainCol + 1;
+  let dbCol = captainCol + 2;
 
-  for (let r = captainRow; r < Math.min(sheetGrid.length, captainRow + 8); r++) {
-    const row = sheetGrid[r];
-    const startCol = Math.max(0, captainCol - 1);
-    const endCol = Math.min(row.length - 1, captainCol + 5);
-
-    let playerName = '';
-    let dbLink = '';
-    let foundAccountId: string | null = null;
-
-    // Check cells in player's row window
-    for (let c = startCol; c <= endCol; c++) {
-      const cell = row[c];
-      if (!cell) continue;
-
-      // 1. Check href for Dotabuff / OpenDota URL
-      if (cell.href) {
-        const idFromHref = parseInputForAccountId(cell.href);
-        if (idFromHref) {
-          foundAccountId = idFromHref;
-          dbLink = cell.href;
-        }
-      }
-
-      // 2. Check text for Dotabuff URL or ID
-      if (!foundAccountId && cell.text) {
-        const idFromText = parseInputForAccountId(cell.text);
-        if (idFromText) {
-          foundAccountId = idFromText;
-          dbLink = cell.text;
-        }
-      }
-
-      // 3. Name extraction (first non-numeric, non-header string in player column)
-      if (!playerName && cell.text && !cell.text.toLowerCase().includes('average') && !cell.text.toLowerCase().includes('db link') && !cell.text.toLowerCase().includes('mmr') && !cell.text.toLowerCase().includes('coins')) {
-        // Exclude purely numeric MMR / coins values
-        if (!/^\d+$/.test(cell.text.trim())) {
-          playerName = cell.text.trim();
-        }
-      }
+  // Check header row above captain (if present) to confirm exact column indices
+  if (captainRow > 0) {
+    const headerRow = sheetGrid[captainRow - 1];
+    for (let c = Math.max(0, captainCol - 2); c <= Math.min(headerRow.length - 1, captainCol + 4); c++) {
+      const hText = headerRow[c]?.text.toLowerCase() || '';
+      if (hText.includes('player')) playerCol = c;
+      if (hText.includes('mmr')) mmrCol = c;
+      if (hText.includes('dotabuff') || hText.includes('db')) dbCol = c;
     }
-
-    // If we found a player name or link, add to roster
-    if (playerName || foundAccountId) {
-      // Avoid adding "Average MMR" row
-      if (playerName.toLowerCase().includes('average')) {
-        break;
-      }
-
-      if (!discoveredPlayers.some((p) => (foundAccountId && p.accountId === foundAccountId) || (playerName && p.name.toLowerCase() === playerName.toLowerCase()))) {
-        discoveredPlayers.push({
-          name: playerName || (r === captainRow ? matchedCaptainName : `Player ${discoveredPlayers.length + 1}`),
-          dotabuffUrl: dbLink || (foundAccountId ? `https://www.dotabuff.com/players/${foundAccountId}` : ''),
-          accountId: foundAccountId,
-          assignedPosition: Math.min(5, discoveredPlayers.length + 1),
-        });
-      }
-    }
-
-    if (discoveredPlayers.length >= 5) break;
   }
 
-  // Fallback pad to 5 players if fewer were detected
-  while (discoveredPlayers.length < 5) {
+  const discoveredPlayers: ClarityPlayerItem[] = [];
+
+  // Iterate down 5 player rows from captainRow
+  for (let offset = 0; offset < 5; offset++) {
+    const r = captainRow + offset;
+    if (r >= sheetGrid.length) break;
+
+    const row = sheetGrid[r];
+    const nameCell = row[playerCol] || { text: '' };
+    const mmrCell = row[mmrCol] || { text: '' };
+    const dbCell = row[dbCol] || { text: '' };
+
+    let pName = nameCell.text.trim();
+    if (!pName && offset === 0) pName = matchedCaptainName;
+
+    // Check if we hit "Average MMR"
+    if (pName.toLowerCase().includes('average') || pName.toLowerCase().includes('mmr:')) {
+      break;
+    }
+
+    // Extract MMR
+    let mmrNum: number | null = null;
+    const rawMmr = mmrCell.text.replace(/,/g, '').trim();
+    if (/^\d+$/.test(rawMmr)) {
+      mmrNum = parseInt(rawMmr, 10);
+    }
+
+    // Extract Dotabuff Link & Account ID
+    let foundId: string | null = null;
+    let foundUrl = '';
+
+    // 1. From dbCell href
+    if (dbCell.href) {
+      foundId = extractDotaAccountId(dbCell.href);
+      if (foundId) foundUrl = dbCell.href;
+    }
+
+    // 2. From dbCell text
+    if (!foundId && dbCell.text) {
+      foundId = extractDotaAccountId(dbCell.text);
+      if (foundId) foundUrl = dbCell.text;
+    }
+
+    // 3. From any cell in the immediate row that contains a link
+    if (!foundId) {
+      for (let c = Math.max(0, playerCol - 1); c <= Math.min(row.length - 1, dbCol + 2); c++) {
+        if (row[c]?.href) {
+          const id = extractDotaAccountId(row[c].href!);
+          if (id) {
+            foundId = id;
+            foundUrl = row[c].href!;
+            break;
+          }
+        }
+      }
+    }
+
+    if (foundId && !foundUrl.startsWith('http')) {
+      foundUrl = `https://www.dotabuff.com/players/${foundId}`;
+    }
+
     discoveredPlayers.push({
-      name: `Player ${discoveredPlayers.length + 1}`,
+      name: pName || `Player ${offset + 1}`,
+      mmr: mmrNum,
+      rankText: getRankFromMmr(mmrNum),
+      dotabuffUrl: foundUrl || (foundId ? `https://www.dotabuff.com/players/${foundId}` : ''),
+      accountId: foundId,
+      assignedPosition: offset + 1,
+    });
+  }
+
+  // Pad to 5 players if fewer than 5 rows existed
+  while (discoveredPlayers.length < 5) {
+    const idx = discoveredPlayers.length + 1;
+    discoveredPlayers.push({
+      name: `Player ${idx}`,
+      mmr: null,
+      rankText: 'Unranked',
       dotabuffUrl: '',
       accountId: null,
-      assignedPosition: discoveredPlayers.length + 1,
+      assignedPosition: idx,
     });
   }
 
   return {
     captainName: matchedCaptainName,
     division: divisionNumber,
-    players: discoveredPlayers.slice(0, 5),
+    players: discoveredPlayers,
   };
 }
