@@ -10,7 +10,37 @@ import {
   SOUND_PRESETS
 } from '../utils/audio';
 import { ToolLayout } from './ToolLayout';
-import { Volume2 } from 'lucide-react';
+import {
+  BellRing,
+  Radio,
+  Zap,
+  Activity,
+  ChevronsUp,
+  AlertTriangle,
+  Volume2
+} from 'lucide-react';
+
+export const BeepIcon: React.FC<{ soundType: AlertSoundType; className?: string }> = ({
+  soundType,
+  className = 'w-3.5 h-3.5 text-palette-blue-accent flex-shrink-0'
+}) => {
+  switch (soundType) {
+    case 'double_chime':
+      return <BellRing className={className} />;
+    case 'single_beep':
+      return <Radio className={className} />;
+    case 'high_ping':
+      return <Zap className={className} />;
+    case 'low_tone':
+      return <Activity className={className} />;
+    case 'triple_alert':
+      return <ChevronsUp className={className} />;
+    case 'warning_pulse':
+      return <AlertTriangle className={className} />;
+    default:
+      return <Volume2 className={className} />;
+  }
+};
 
 interface VoiceReminderProps {
   isTimerRunning: boolean;
@@ -563,7 +593,7 @@ export const VoiceReminder: React.FC<VoiceReminderProps> = ({
                     </span>
 
                     {r.soundType !== 'speech' && (
-                      <Volume2 className="w-3.5 h-3.5 text-palette-blue-accent flex-shrink-0" />
+                      <BeepIcon soundType={r.soundType} />
                     )}
 
                     <div className="min-w-0">
