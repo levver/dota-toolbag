@@ -10,7 +10,6 @@ import {
   extractSpreadsheetInfo,
   normalizeName,
   cleanPlayerName,
-  isValidMmr,
   CellValue
 } from '../../utils/claritySheet';
 
@@ -83,7 +82,7 @@ export const ClarityLeagueAdapter: LeagueAdapter = {
       'player', 'players', 'mmr', 'dotabuff', 'db', 'link', 'db link', 'coins', 'average', 'avg',
       'total', 'rank', 'sub', 'subs', 'substitutes', 'team', 'captain', 'captains', 'division',
       'score', 'wins', 'losses', 'tier', 'status', 'unranked', 'tbd', 'open', 'pos 1', 'pos 2',
-      'pos 3', 'pos 4', 'pos 5', 'pos', 'role', 'name', 'account id', 'id', 'role/rank'
+      'pos 3', 'pos 4', 'pos 5', 'pos', 'role', 'name', 'account id', 'id', 'role/rank', 'false', 'true'
     ]);
 
     const addCaptain = (rawName: string) => {
@@ -95,34 +94,26 @@ export const ClarityLeagueAdapter: LeagueAdapter = {
       }
     };
 
-    // Locate each captain: Row r-1 is the table header (Player / MMR), Row r is Player 1 (the Captain)
-    for (let r = 1; r < sheetGrid.length; r++) {
+    // Locate each team table: exact header row with "Player" (col c) and "MMR" (col c+1) -> row r+1 is the Captain
+    for (let r = 0; r < sheetGrid.length - 1; r++) {
       for (let c = 0; c < sheetGrid[r].length; c++) {
-        const capCell = (sheetGrid[r][c]?.text || '').trim();
-        if (!capCell) continue;
+        const hText = (sheetGrid[r][c]?.text || '').trim().toLowerCase();
+        const nextHText = (sheetGrid[r][c + 1]?.text || '').trim().toLowerCase();
 
-        const cellAbove = (sheetGrid[r - 1]?.[c]?.text || '').trim().toLowerCase();
-        const cellAboveAdjacent = (sheetGrid[r - 1]?.[c + 1]?.text || '').trim().toLowerCase();
+        const isPlayerHeader = hText === 'player' || hText === 'players' || hText === 'player name' || hText === 'captain';
+        const isMmrHeader = nextHText === 'mmr' || nextHText === 'rank' || nextHText === 'coins' || nextHText.includes('mmr');
 
-        const isHeaderAbove =
-          cellAbove.includes('player') ||
-          cellAbove.includes('captain') ||
-          cellAbove.includes('name') ||
-          cellAbove.includes('roster') ||
-          cellAboveAdjacent.includes('mmr') ||
-          cellAboveAdjacent.includes('rank') ||
-          (r === 1);
-
-        if (!isHeaderAbove) continue;
-
-        const next1 = sheetGrid[r]?.[c + 1]?.text || sheetGrid[r]?.[c + 1]?.num;
-        const next2 = (sheetGrid[r]?.[c + 2]?.text || '').toLowerCase();
-
-        const hasMmr = isValidMmr(next1) || /^\d{3,5}$/.test(String(next1 || '').replace(/,/g, ''));
-        const hasDb = next2.includes('db') || next2.includes('dotabuff') || next2.includes('link') || next2.includes('http');
-
-        if (hasMmr || hasDb) {
-          addCaptain(capCell);
+        if (isPlayerHeader && isMmrHeader) {
+          const capCell = (sheetGrid[r + 1]?.[c]?.text || '').trim();
+          if (
+            capCell &&
+            capCell.toLowerCase() !== 'false' &&
+            capCell.toLowerCase() !== 'true' &&
+            !capCell.toLowerCase().includes('average') &&
+            !capCell.toLowerCase().includes('mmr')
+          ) {
+            addCaptain(capCell);
+          }
         }
       }
     }
