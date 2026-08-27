@@ -72,7 +72,7 @@ export const LineupInputs: React.FC<LineupInputsProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [activeLeagueId, currentProfile?.division, currentProfile?.sheetUrl]);
+  }, [activeLeagueId, currentAdapter, currentProfile?.division, currentProfile?.sheetUrl, preferences]);
 
   const isConfigured = activeLeagueId && currentProfile?.captainName;
   const opponentsList = divisionCaptains.filter(

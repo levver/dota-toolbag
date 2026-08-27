@@ -98,11 +98,11 @@ export const ClarityLeagueAdapter: LeagueAdapter = {
       }
     };
 
-    // Strategy 1: Scan the "Captain Name" column in the draft order table
+    // Strategy 1: Scan the "Captain Name" / "Captain" column in the draft order table
     for (let r = 0; r < sheetGrid.length; r++) {
       for (let c = 0; c < sheetGrid[r].length; c++) {
         const headerNorm = normalizeName(sheetGrid[r][c]?.text || '');
-        if (headerNorm === 'captainname' || headerNorm === 'captain') {
+        if (headerNorm.includes('captain')) {
           for (let rowIdx = r + 1; rowIdx < sheetGrid.length; rowIdx++) {
             const val = (sheetGrid[rowIdx]?.[c]?.text || '').trim();
             if (!val || /^\d+$/.test(val)) continue;
@@ -134,7 +134,7 @@ export const ClarityLeagueAdapter: LeagueAdapter = {
           normHeader === 'playerc';
 
         if (isPlayerHeader) {
-          const capCell = (sheetGrid[r + 1]?.[c]?.text || '').trim();
+          const capCell = (sheetGrid[r + 1]?.[c]?.text || sheetGrid[r + 2]?.[c]?.text || '').trim();
           addCaptain(capCell);
         }
       }
