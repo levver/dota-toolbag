@@ -82,25 +82,43 @@ export const ClarityLeagueAdapter: LeagueAdapter = {
       'player', 'players', 'mmr', 'dotabuff', 'db', 'link', 'db link', 'coins', 'average', 'avg',
       'total', 'rank', 'sub', 'subs', 'substitutes', 'team', 'captain', 'captains', 'division',
       'score', 'wins', 'losses', 'tier', 'status', 'unranked', 'tbd', 'open', 'pos 1', 'pos 2',
-      'pos 3', 'pos 4', 'pos 5', 'pos', 'role', 'name', 'account id', 'id', 'role/rank', 'false', 'true'
+      'pos 3', 'pos 4', 'pos 5', 'pos', 'role', 'name', 'account id', 'id', 'role/rank', 'false', 'true',
+      'average mmr', 'averagemmr', 'total mmr', 'avg mmr'
     ]);
 
     const addCaptain = (rawName: string) => {
       if (!rawName) return;
       const cleaned = cleanPlayerName(rawName);
       const norm = normalizeName(cleaned);
-      if (cleaned && norm.length >= 2 && !ignoreWords.has(norm) && !/^\d+$/.test(cleaned) && !seen.has(norm)) {
+      if (
+        cleaned &&
+        norm.length >= 2 &&
+        !ignoreWords.has(norm) &&
+        !norm.startsWith('average') &&
+        !norm.startsWith('total') &&
+        !/^\d+$/.test(cleaned) &&
+        !seen.has(norm)
+      ) {
         seen.add(norm);
         captains.push(cleaned);
       }
     };
 
-    // Extract ONLY the row immediately below each cell containing "Player"
+    // Extract the row immediately below each cell whose header is "Player" / "Players" / "Player Name" / "Captain"
     for (let r = 0; r < sheetGrid.length - 1; r++) {
       for (let c = 0; c < sheetGrid[r].length; c++) {
-        const text = (sheetGrid[r][c]?.text || '').trim().toLowerCase();
-        if (text === 'player') {
-          const capCell = (sheetGrid[r + 1]?.[c]?.text || '').trim();
+        const rawText = (sheetGrid[r][c]?.text || '').trim();
+        const normHeader = normalizeName(rawText);
+
+        const isPlayerHeader =
+          normHeader === 'player' ||
+          normHeader === 'players' ||
+          normHeader === 'playername' ||
+          normHeader === 'captain' ||
+          normHeader === 'playerc';
+
+        if (isPlayerHeader) {
+          const capCell = (sheetGrid[r + 1]?.[c]?.text || sheetGrid[r + 2]?.[c]?.text || '').trim();
           addCaptain(capCell);
         }
       }
