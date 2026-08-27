@@ -86,6 +86,7 @@ export const ClarityLeagueAdapter: LeagueAdapter = {
     ]);
 
     const addCaptain = (rawName: string) => {
+      if (!rawName) return;
       const cleaned = cleanPlayerName(rawName);
       const norm = normalizeName(cleaned);
       if (cleaned && norm.length >= 2 && !ignoreWords.has(norm) && !/^\d+$/.test(cleaned) && !seen.has(norm)) {
@@ -94,26 +95,13 @@ export const ClarityLeagueAdapter: LeagueAdapter = {
       }
     };
 
-    // Locate each team table: exact header row with "Player" (col c) and "MMR" (col c+1) -> row r+1 is the Captain
+    // Extract ONLY the row immediately below each cell containing "Player"
     for (let r = 0; r < sheetGrid.length - 1; r++) {
       for (let c = 0; c < sheetGrid[r].length; c++) {
-        const hText = (sheetGrid[r][c]?.text || '').trim().toLowerCase();
-        const nextHText = (sheetGrid[r][c + 1]?.text || '').trim().toLowerCase();
-
-        const isPlayerHeader = hText === 'player' || hText === 'players' || hText === 'player name' || hText === 'captain';
-        const isMmrHeader = nextHText === 'mmr' || nextHText === 'rank' || nextHText === 'coins' || nextHText.includes('mmr');
-
-        if (isPlayerHeader && isMmrHeader) {
+        const text = (sheetGrid[r][c]?.text || '').trim().toLowerCase();
+        if (text === 'player') {
           const capCell = (sheetGrid[r + 1]?.[c]?.text || '').trim();
-          if (
-            capCell &&
-            capCell.toLowerCase() !== 'false' &&
-            capCell.toLowerCase() !== 'true' &&
-            !capCell.toLowerCase().includes('average') &&
-            !capCell.toLowerCase().includes('mmr')
-          ) {
-            addCaptain(capCell);
-          }
+          addCaptain(capCell);
         }
       }
     }
