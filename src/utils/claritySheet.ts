@@ -18,7 +18,7 @@ export interface CellValue {
   num?: number;
 }
 
-export const MIN_VALID_MMR = 1;
+export const MIN_VALID_MMR = 400;
 export const MAX_VALID_MMR = 16000;
 export const MIN_ACCOUNT_ID = 20000;
 export const TEAM_SIZE = 5;
@@ -136,6 +136,7 @@ export function extractSpreadsheetInfo(url: string): { spreadsheetId: string | n
 
 /**
  * Fetches Google Sheet tab data using Google Visualization JSON endpoint.
+ * Accurately includes column headers (cols) as Row 0.
  */
 export async function fetchGVizGrid(
   spreadsheetId: string,
@@ -160,7 +161,11 @@ export async function fetchGVizGrid(
     throw new Error(data.errors?.[0]?.message || 'Tab not found');
   }
 
-  return data.table.rows.map((rowObj: { c?: Array<{ v?: unknown; f?: string } | null> }) => {
+  const colHeaderRow: CellValue[] = (data.table.cols || []).map((col: { label?: string; id?: string }) => ({
+    text: col?.label || col?.id || '',
+  }));
+
+  const rows = data.table.rows.map((rowObj: { c?: Array<{ v?: unknown; f?: string } | null> }) => {
     if (!rowObj?.c) return [];
     return rowObj.c.map((cell) => {
       if (!cell) return { text: '' };
@@ -177,6 +182,13 @@ export async function fetchGVizGrid(
       return { text: textVal, num: numVal };
     });
   });
+
+  // Prepend column header definitions as Row 0 if they contain text labels (e.g. Player, MMR, Captain Name)
+  if (colHeaderRow.some((c) => c.text.trim().length > 0)) {
+    return [colHeaderRow, ...rows];
+  }
+
+  return rows;
 }
 
 let masterMapCache: { spreadsheetId: string; map: Map<string, { accountId: string; dotabuffUrl: string; mmr?: number }> } | null = null;
