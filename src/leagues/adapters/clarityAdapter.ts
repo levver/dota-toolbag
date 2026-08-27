@@ -9,7 +9,8 @@ import {
   fetchGVizGrid,
   extractSpreadsheetInfo,
   normalizeName,
-  cleanPlayerName
+  cleanPlayerName,
+  isValidMmr
 } from '../../utils/claritySheet';
 
 const DEFAULT_CLARITY_DIVISIONS = [
@@ -33,14 +34,6 @@ export const clarityDefinition: LeagueDefinition = {
 };
 
 const captainsCache = new Map<string, string[]>();
-
-function isValidMmr(val: string | undefined | null): boolean {
-  if (!val) return false;
-  const clean = val.replace(/,/g, '').trim();
-  if (!/^\d+$/.test(clean)) return false;
-  const num = parseInt(clean, 10);
-  return num >= 400 && num <= 16000;
-}
 
 export const ClarityLeagueAdapter: LeagueAdapter = {
   id: 'clarity',

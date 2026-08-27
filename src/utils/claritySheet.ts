@@ -18,6 +18,32 @@ export interface CellValue {
   num?: number;
 }
 
+export const MIN_VALID_MMR = 400;
+export const MAX_VALID_MMR = 16000;
+export const MIN_ACCOUNT_ID = 20000;
+export const TEAM_SIZE = 5;
+
+export const RANK_THRESHOLDS = {
+  HERALD: 770,
+  GUARDIAN: 1540,
+  CRUSADER: 2310,
+  ARCHON: 3080,
+  LEGEND: 3850,
+  ANCIENT: 4620,
+  DIVINE: 5420,
+} as const;
+
+export function isValidMmr(val: unknown): boolean {
+  if (val === null || val === undefined) return false;
+  if (typeof val === 'number') {
+    return !isNaN(val) && val >= MIN_VALID_MMR && val <= MAX_VALID_MMR;
+  }
+  const clean = String(val).replace(/,/g, '').trim();
+  if (!/^\d+$/.test(clean)) return false;
+  const num = parseInt(clean, 10);
+  return num >= MIN_VALID_MMR && num <= MAX_VALID_MMR;
+}
+
 export function normalizeName(str: string): string {
   return (str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 }
@@ -78,7 +104,7 @@ export function extractDotaAccountId(val: unknown): string | null {
   const digitsOnly = str.replace(/,/g, '').trim();
   if (/^\d{6,10}$/.test(digitsOnly)) {
     const num = parseInt(digitsOnly, 10);
-    if (num > 20000) {
+    if (num > MIN_ACCOUNT_ID) {
       return digitsOnly;
     }
   }
@@ -88,13 +114,13 @@ export function extractDotaAccountId(val: unknown): string | null {
 
 export function getRankFromMmr(mmr: number | null): string {
   if (!mmr || isNaN(mmr) || mmr <= 0) return 'Unranked';
-  if (mmr < 770) return `Herald (${mmr.toLocaleString()})`;
-  if (mmr < 1540) return `Guardian (${mmr.toLocaleString()})`;
-  if (mmr < 2310) return `Crusader (${mmr.toLocaleString()})`;
-  if (mmr < 3080) return `Archon (${mmr.toLocaleString()})`;
-  if (mmr < 3850) return `Legend (${mmr.toLocaleString()})`;
-  if (mmr < 4620) return `Ancient (${mmr.toLocaleString()})`;
-  if (mmr < 5420) return `Divine (${mmr.toLocaleString()})`;
+  if (mmr < RANK_THRESHOLDS.HERALD) return `Herald (${mmr.toLocaleString()})`;
+  if (mmr < RANK_THRESHOLDS.GUARDIAN) return `Guardian (${mmr.toLocaleString()})`;
+  if (mmr < RANK_THRESHOLDS.CRUSADER) return `Crusader (${mmr.toLocaleString()})`;
+  if (mmr < RANK_THRESHOLDS.ARCHON) return `Archon (${mmr.toLocaleString()})`;
+  if (mmr < RANK_THRESHOLDS.LEGEND) return `Legend (${mmr.toLocaleString()})`;
+  if (mmr < RANK_THRESHOLDS.ANCIENT) return `Ancient (${mmr.toLocaleString()})`;
+  if (mmr < RANK_THRESHOLDS.DIVINE) return `Divine (${mmr.toLocaleString()})`;
   return `Immortal (${mmr.toLocaleString()})`;
 }
 
@@ -141,7 +167,7 @@ export async function fetchGVizGrid(
       const vStr = cell.v !== null && cell.v !== undefined ? String(cell.v).trim() : '';
       const fStr = cell.f !== null && cell.f !== undefined ? String(cell.f).trim() : '';
 
-      // Retain URL or raw account ID if stored in value vs display label
+      // Preserve actual URL or numeric account ID if stored in value vs formatted text
       let textVal = fStr || vStr;
       if (vStr.includes('http') || vStr.includes('players/') || /^\d{6,10}$/.test(vStr.replace(/,/g, ''))) {
         textVal = vStr;
@@ -193,8 +219,8 @@ export async function fetchMasterPlayerMap(
             const id = extractDotaAccountId(cell.text);
             if (id) foundId = id;
 
-            if (cell.num && cell.num >= 400 && cell.num <= 16000 && !foundId) {
-              mmr = Math.round(cell.num);
+            if (isValidMmr(cell.num) && !foundId) {
+              mmr = Math.round(Number(cell.num));
             }
 
             const cleanStr = cell.text.trim();
@@ -319,9 +345,9 @@ export async function importTeamFromClaritySheet(
         const next2 = row[c + 2]?.text.toLowerCase() || '';
         const prev = r > 0 ? sheetGrid[r - 1] : [];
 
-        if (/^\d{3,5}$/.test(next1.replace(/,/g, '').trim())) score += 30;
+        if (isValidMmr(next1)) score += 30;
         if (next2.includes('db') || next2.includes('dotabuff') || next2.includes('link')) score += 25;
-        if (prev.some((h) => h.text.toLowerCase().includes('player') || h.text.toLowerCase().includes('mmr'))) score += 30;
+        if (prev.some((h) => (h?.text || '').toLowerCase().includes('player') || (h?.text || '').toLowerCase().includes('mmr'))) score += 30;
         if (next1.length > 4 && !/^\d+$/.test(next1.replace(/,/g, ''))) score -= 30;
 
         matches.push({ row: r, col: c, text: cell.text, score });
@@ -336,10 +362,10 @@ export async function importTeamFromClaritySheet(
   matches.sort((a, b) => b.score - a.score);
   let { row: captainRow, col: captainCol, text: matchedCaptainName } = matches[0];
 
-  const mmrAtMatch = (sheetGrid[captainRow]?.[captainCol + 1]?.text || '').replace(/,/g, '').trim();
-  if (!/^\d{3,5}$/.test(mmrAtMatch) && captainRow + 1 < sheetGrid.length) {
-    const mmrBelow = (sheetGrid[captainRow + 1]?.[captainCol + 1]?.text || '').replace(/,/g, '').trim();
-    if (/^\d{3,5}$/.test(mmrBelow)) {
+  const mmrAtMatch = sheetGrid[captainRow]?.[captainCol + 1]?.text;
+  if (!isValidMmr(mmrAtMatch) && captainRow + 1 < sheetGrid.length) {
+    const mmrBelow = sheetGrid[captainRow + 1]?.[captainCol + 1]?.text;
+    if (isValidMmr(mmrBelow)) {
       captainRow = captainRow + 1;
     }
   }
@@ -359,7 +385,7 @@ export async function importTeamFromClaritySheet(
 
   const players: ClarityPlayerItem[] = [];
 
-  for (let offset = 0; offset < 5; offset++) {
+  for (let offset = 0; offset < TEAM_SIZE; offset++) {
     const r = captainRow + offset;
     if (r >= sheetGrid.length) break;
 
@@ -370,8 +396,11 @@ export async function importTeamFromClaritySheet(
 
     let mmrNum: number | null = null;
     const rawMmr = (row[mmrCol]?.text || '').replace(/,/g, '').trim();
-    if (/^\d+$/.test(rawMmr)) mmrNum = parseInt(rawMmr, 10);
-    else if (row[mmrCol]?.num) mmrNum = Math.round(row[mmrCol]!.num!);
+    if (isValidMmr(rawMmr)) {
+      mmrNum = parseInt(rawMmr, 10);
+    } else if (isValidMmr(row[mmrCol]?.num)) {
+      mmrNum = Math.round(row[mmrCol]!.num!);
+    }
 
     // 1. Extract from dbCol text
     let foundId = extractDotaAccountId(row[dbCol]?.text);
@@ -417,7 +446,7 @@ export async function importTeamFromClaritySheet(
     });
   }
 
-  while (players.length < 5) {
+  while (players.length < TEAM_SIZE) {
     const idx = players.length + 1;
     players.push({
       name: `Player ${idx}`,
