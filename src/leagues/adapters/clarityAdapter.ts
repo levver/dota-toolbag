@@ -83,7 +83,8 @@ export const ClarityLeagueAdapter: LeagueAdapter = {
       'total', 'rank', 'sub', 'subs', 'substitutes', 'team', 'captain', 'captains', 'division',
       'score', 'wins', 'losses', 'tier', 'status', 'unranked', 'tbd', 'open', 'pos 1', 'pos 2',
       'pos 3', 'pos 4', 'pos 5', 'pos', 'role', 'name', 'account id', 'id', 'role/rank', 'false', 'true',
-      'average mmr', 'averagemmr', 'total mmr', 'avg mmr'
+      'captain name', 'team name', 'coin allocation', 'players still to draft', 'eligible to bid',
+      'exhaustion rank', 'draft order', 'fa', 'average mmr', 'averagemmr', 'total mmr'
     ]);
 
     const addCaptain = (rawName: string) => {
@@ -104,7 +105,24 @@ export const ClarityLeagueAdapter: LeagueAdapter = {
       }
     };
 
-    // Extract the row immediately below each cell whose header is "Player" / "Players" / "Player Name" / "Captain"
+    // Strategy 1: Read the explicit "Captain Name" column in the draft board
+    for (let r = 0; r < sheetGrid.length; r++) {
+      for (let c = 0; c < sheetGrid[r].length; c++) {
+        const headerNorm = normalizeName(sheetGrid[r][c]?.text || '');
+        if (headerNorm === 'captainname' || (headerNorm === 'captain' && c < 5)) {
+          // Read all captain rows down this column
+          for (let rowIdx = r + 1; rowIdx < sheetGrid.length; rowIdx++) {
+            const val = (sheetGrid[rowIdx]?.[c]?.text || '').trim();
+            if (!val || /^\d+$/.test(val)) continue;
+            const normVal = normalizeName(val);
+            if (normVal.includes('average') || normVal.includes('total') || normVal.includes('format')) break;
+            addCaptain(val);
+          }
+        }
+      }
+    }
+
+    // Strategy 2: Extract the row directly below each "Player" table header cell across all column blocks
     for (let r = 0; r < sheetGrid.length - 1; r++) {
       for (let c = 0; c < sheetGrid[r].length; c++) {
         const rawText = (sheetGrid[r][c]?.text || '').trim();
@@ -114,11 +132,10 @@ export const ClarityLeagueAdapter: LeagueAdapter = {
           normHeader === 'player' ||
           normHeader === 'players' ||
           normHeader === 'playername' ||
-          normHeader === 'captain' ||
           normHeader === 'playerc';
 
         if (isPlayerHeader) {
-          const capCell = (sheetGrid[r + 1]?.[c]?.text || sheetGrid[r + 2]?.[c]?.text || '').trim();
+          const capCell = (sheetGrid[r + 1]?.[c]?.text || '').trim();
           addCaptain(capCell);
         }
       }
