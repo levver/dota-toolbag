@@ -85,53 +85,32 @@ export const ClarityLeagueAdapter: LeagueAdapter = {
       'pos 3', 'pos 4', 'pos 5', 'pos', 'role', 'name', 'account id', 'id', 'role/rank'
     ]);
 
-    const addCaptain = (rawName: string) => {
-      const cleaned = cleanPlayerName(rawName);
-      const norm = normalizeName(cleaned);
-      if (cleaned && norm.length >= 2 && !ignoreWords.has(norm) && !/^\d+$/.test(cleaned) && !seen.has(norm)) {
-        seen.add(norm);
-        captains.push(cleaned);
-      }
-    };
-
-    // 1. Primary Discovery: Locate consecutive player rows with MMR where r is the FIRST player row
-    for (let r = 0; r < sheetGrid.length - 1; r++) {
-      for (let c = 0; c < sheetGrid[r].length; c++) {
-        const p1Name = (sheetGrid[r][c]?.text || '').trim();
-        const p1Mmr = sheetGrid[r][c + 1]?.text;
-        const p2Mmr = sheetGrid[r + 1]?.[c + 1]?.text;
-        const pAboveMmr = r > 0 ? sheetGrid[r - 1]?.[c + 1]?.text : null;
-
-        // Condition: Row r has MMR, row r+1 has MMR, but row r-1 does NOT have MMR -> Row r is Player 1 (Captain)
-        if (isValidMmr(p1Mmr) && isValidMmr(p2Mmr) && !isValidMmr(pAboveMmr)) {
-          addCaptain(p1Name);
-        }
-
-        // Also check if MMR is in col c+2 (e.g. role/rank in c+1)
-        const p1Mmr2 = sheetGrid[r][c + 2]?.text;
-        const p2Mmr2 = sheetGrid[r + 1]?.[c + 2]?.text;
-        const pAboveMmr2 = r > 0 ? sheetGrid[r - 1]?.[c + 2]?.text : null;
-
-        if (isValidMmr(p1Mmr2) && isValidMmr(p2Mmr2) && !isValidMmr(pAboveMmr2)) {
-          addCaptain(p1Name);
-        }
-      }
-    }
-
-    // 2. Secondary Discovery: Table Header Matching (Player / MMR) -> row r+1 is Captain
+    // Locate exact team tables: header row has "Player" with "MMR" in adjacent column, and row r+1 is the Captain
     for (let r = 0; r < sheetGrid.length - 1; r++) {
       for (let c = 0; c < sheetGrid[r].length; c++) {
         const headerCell = (sheetGrid[r][c]?.text || '').trim().toLowerCase();
-        const nextHeaderCell = (sheetGrid[r][c + 1]?.text || '').trim().toLowerCase();
-        const nextHeaderCell2 = (sheetGrid[r][c + 2]?.text || '').trim().toLowerCase();
+        const nextHeader1 = (sheetGrid[r][c + 1]?.text || '').trim().toLowerCase();
+        const nextHeader2 = (sheetGrid[r][c + 2]?.text || '').trim().toLowerCase();
 
-        const isHeader =
-          (headerCell === 'player' || headerCell === 'players' || headerCell === 'captain' || headerCell === 'name') &&
-          (nextHeaderCell.includes('mmr') || nextHeaderCell.includes('rank') || nextHeaderCell2.includes('mmr') || nextHeaderCell === '');
+        const isPlayerHeader =
+          (headerCell === 'player' || headerCell === 'players' || headerCell === 'captain') &&
+          (nextHeader1.includes('mmr') || nextHeader1.includes('rank') || nextHeader2.includes('mmr'));
 
-        if (isHeader) {
+        if (isPlayerHeader) {
           const capCell = (sheetGrid[r + 1][c]?.text || '').trim();
-          addCaptain(capCell);
+          const capMmr1 = sheetGrid[r + 1]?.[c + 1]?.text;
+          const capMmr2 = sheetGrid[r + 1]?.[c + 2]?.text;
+
+          // Ensure row r+1 is an actual player with MMR
+          if (isValidMmr(capMmr1) || isValidMmr(capMmr2)) {
+            const cleaned = cleanPlayerName(capCell);
+            const norm = normalizeName(cleaned);
+
+            if (cleaned && norm.length >= 2 && !ignoreWords.has(norm) && !seen.has(norm)) {
+              seen.add(norm);
+              captains.push(cleaned);
+            }
+          }
         }
       }
     }
