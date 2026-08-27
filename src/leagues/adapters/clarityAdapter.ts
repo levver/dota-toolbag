@@ -12,6 +12,7 @@ import {
   cleanPlayerName,
   CellValue
 } from '../../utils/claritySheet';
+import { resolveTeamDraftUrl } from '../../utils/openDota';
 
 const DEFAULT_CLARITY_DIVISIONS = [
   { id: 1, label: 'Division 1' },
@@ -122,10 +123,27 @@ export const ClarityLeagueAdapter: LeagueAdapter = {
     const divNum = typeof division === 'number' ? division : parseInt(String(division), 10) || 1;
     const result = await importTeamFromClaritySheet(sheetUrl, divNum, captainName);
 
+    const captainAccountId = result.players[0]?.accountId || result.players.find((p) => p.accountId)?.accountId;
+    let teamDraftUrl = result.teamDraftUrl;
+    let teamName = result.teamName;
+
+    if (captainAccountId) {
+      const resolved = await resolveTeamDraftUrl(captainAccountId, result.teamName);
+      if (resolved.draftUrl) {
+        teamDraftUrl = resolved.draftUrl;
+      }
+      if (resolved.matchedTeamName && !teamName) {
+        teamName = resolved.matchedTeamName;
+      }
+    }
+
     return {
       captainName: result.captainName,
       division: result.division,
-      players: result.players
+      players: result.players,
+      teamName,
+      teamDraftUrl,
+      challongeUrl: result.challongeUrl
     };
   }
 };

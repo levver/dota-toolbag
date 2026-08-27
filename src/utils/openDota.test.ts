@@ -3,7 +3,8 @@ import {
   parseInputForAccountId,
   getRankIconUrl,
   getWinrateColor,
-  generateTextSummary
+  generateTextSummary,
+  resolveTeamDraftUrl
 } from './openDota';
 import { PlayerProfileResult } from '../types';
 
@@ -56,14 +57,29 @@ describe('openDota utility tests', () => {
   });
 
   describe('getWinrateColor', () => {
-    test('returns green tone for > 50%', () => {
-      const color = getWinrateColor('58.5%');
-      expect(color).toContain('rgb(');
+    test('returns green for >= 60%', () => {
+      const color = getWinrateColor('60.0%');
+      expect(color).toBe('rgb(34, 197, 94)');
     });
 
-    test('returns red tone for <= 50%', () => {
-      const color = getWinrateColor('42.0%');
-      expect(color).toContain('rgb(');
+    test('returns yellow for 50%', () => {
+      const color = getWinrateColor('50.0%');
+      expect(color).toBe('rgb(234, 179, 8)');
+    });
+
+    test('returns red for <= 40%', () => {
+      const color = getWinrateColor('40.0%');
+      expect(color).toBe('rgb(239, 68, 68)');
+    });
+
+    test('interpolates between red and yellow for 45%', () => {
+      const color = getWinrateColor('45.0%');
+      expect(color).toBe('rgb(237, 124, 38)');
+    });
+
+    test('interpolates between yellow and green for 55%', () => {
+      const color = getWinrateColor('55.0%');
+      expect(color).toBe('rgb(134, 188, 51)');
     });
   });
 
@@ -92,6 +108,20 @@ describe('openDota utility tests', () => {
       expect(summary).toContain('levver');
       expect(summary).toContain('Legend 2');
       expect(summary).toContain('Anti-Mage');
+      expect(summary).toContain('Recent Tournament Games (All teams)');
+    });
+  });
+
+  describe('resolveTeamDraftUrl', () => {
+    test('resolves search draft URL if team name is provided without matches', async () => {
+      const res = await resolveTeamDraftUrl(null, 'Disciples of Bogg Shuggoth');
+      expect(res.draftUrl).toBe('https://www.dotabuff.com/esports/teams?q=Disciples%20of%20Bogg%20Shuggoth');
+      expect(res.matchedTeamName).toBe('Disciples of Bogg Shuggoth');
+    });
+
+    test('resolves player teams page if only captain ID is provided', async () => {
+      const res = await resolveTeamDraftUrl('131333617', null);
+      expect(res.draftUrl).toContain('dotabuff.com/esports/');
     });
   });
 });

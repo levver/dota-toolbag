@@ -3,6 +3,9 @@
  */
 export const storage = {
   get<T>(key: string, defaultValue: T, validator?: (data: unknown) => data is T): T {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+      return defaultValue;
+    }
     try {
       const raw = localStorage.getItem(key);
       if (raw === null) return defaultValue;
@@ -19,6 +22,9 @@ export const storage = {
   },
 
   set<T>(key: string, value: T): boolean {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+      return false;
+    }
     try {
       localStorage.setItem(key, JSON.stringify(value));
       return true;
@@ -29,6 +35,9 @@ export const storage = {
   },
 
   remove(key: string): void {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+      return;
+    }
     try {
       localStorage.removeItem(key);
     } catch (e) {

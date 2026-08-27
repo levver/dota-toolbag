@@ -211,19 +211,30 @@ export function getWinrateColor(wrText: string): string {
   }
 
   winrate = Math.min(100, Math.max(0, isNaN(winrate) ? 0 : winrate));
-  let r = 0, g = 0;
 
-  if (winrate <= 50) {
-    const scale = winrate / 50;
-    r = 239;
-    g = Math.round(100 * scale);
+  const RED = [239, 68, 68];
+  const YELLOW = [234, 179, 8];
+  const GREEN = [34, 197, 94];
+
+  let r: number, g: number, b: number;
+
+  if (winrate <= 40) {
+    [r, g, b] = RED;
+  } else if (winrate <= 50) {
+    const scale = (winrate - 40) / 10;
+    r = Math.round(RED[0] + (YELLOW[0] - RED[0]) * scale);
+    g = Math.round(RED[1] + (YELLOW[1] - RED[1]) * scale);
+    b = Math.round(RED[2] + (YELLOW[2] - RED[2]) * scale);
+  } else if (winrate <= 60) {
+    const scale = (winrate - 50) / 10;
+    r = Math.round(YELLOW[0] + (GREEN[0] - YELLOW[0]) * scale);
+    g = Math.round(YELLOW[1] + (GREEN[1] - YELLOW[1]) * scale);
+    b = Math.round(YELLOW[2] + (GREEN[2] - YELLOW[2]) * scale);
   } else {
-    const scale = (winrate - 50) / 50;
-    r = Math.round(239 * (1 - scale * 0.75));
-    g = Math.round(100 + (210 - 100) * scale);
+    [r, g, b] = GREEN;
   }
 
-  return `rgb(${r}, ${g}, 80)`;
+  return `rgb(${r}, ${g}, ${b})`;
 }
 
 /**
@@ -259,7 +270,7 @@ export async function fetchHeroStats(
 
       if (!Array.isArray(playedHeroes) || playedHeroes.length === 0) {
         const message = lobbyType === LOBBY_TYPE_PRO
-          ? 'No tournament matches in last 180 days.'
+          ? 'No tournament matches in last 90 days.'
           : (days ? 'No match data found for this period.' : 'No match data found.');
         return { success: false, message };
       }
@@ -318,7 +329,7 @@ export async function fetchFullPlayerProfile(
       const [allTimeResult, monthlyResult, proResult, playerResponse] = await Promise.all([
         fetchHeroStats(accountId, heroMap, null, null),
         fetchHeroStats(accountId, heroMap, 30, null),
-        fetchHeroStats(accountId, heroMap, 180, LOBBY_TYPE_PRO),
+        fetchHeroStats(accountId, heroMap, 90, LOBBY_TYPE_PRO),
         apiQueue.run(() => fetch(`${OPENDOTA_BASE_URL}/players/${accountId}`))
       ]);
 
@@ -398,7 +409,7 @@ export function generateTextSummary(results: PlayerProfileResult[]): string {
     const sections = [
       { title: "All-Time Heroes", data: player.allTime },
       { title: "Last Month Heroes", data: player.monthly },
-      { title: "Recent Tournament Games", data: player.pro }
+      { title: "Recent Tournament Games (All teams)", data: player.pro }
     ];
 
     sections.forEach((section) => {
@@ -421,4 +432,120 @@ export function generateTextSummary(results: PlayerProfileResult[]): string {
   });
 
   return summary;
+}
+
+export interface EsportsTeamInfo {
+  id: number;
+  name: string;
+  tag?: string;
+}
+
+/**
+ * Fetches esports teams a player has played for in tournament/lobby_type 1 matches.
+ */
+export async function fetchPlayerEsportsTeams(accountId: string, maxMatches = 10): Promise<EsportsTeamInfo[]> {
+  const cacheKey = `esports_teams_${accountId}`;
+  const cached = storage.get<EsportsTeamInfo[] | null>(cacheKey, null);
+  if (cached && Array.isArray(cached) && cached.length > 0) {
+    return cached;
+  }
+
+  try {
+    const matchesRes = await apiQueue.run(() =>
+      fetch(`${OPENDOTA_BASE_URL}/players/${accountId}/matches?lobby_type=1&limit=${maxMatches}`)
+    );
+    if (!matchesRes.ok) return [];
+
+    const matches: Array<{ match_id: number; player_slot: number }> = await matchesRes.json();
+    if (!Array.isArray(matches) || matches.length === 0) return [];
+
+    const teamsMap = new Map<number, EsportsTeamInfo>();
+    const matchesToCheck = matches.slice(0, 5);
+
+    await Promise.all(
+      matchesToCheck.map(async (m) => {
+        try {
+          const detailRes = await apiQueue.run(() => fetch(`${OPENDOTA_BASE_URL}/matches/${m.match_id}`));
+          if (!detailRes.ok) return;
+          const matchData = await detailRes.json();
+
+          const isRadiant = m.player_slot < 128;
+          const teamId = isRadiant ? matchData.radiant_team_id : matchData.dire_team_id;
+          const teamName = isRadiant ? matchData.radiant_name : matchData.dire_name;
+
+          if (teamId && teamName) {
+            teamsMap.set(teamId, {
+              id: teamId,
+              name: String(teamName).trim(),
+              tag: isRadiant ? matchData.radiant_team_tag : matchData.dire_team_tag
+            });
+          }
+        } catch {}
+      })
+    );
+
+    const result = Array.from(teamsMap.values());
+    if (result.length > 0) {
+      storage.set(cacheKey, result);
+    }
+    return result;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Generic helper across all leagues:
+ * Resolves the Dotabuff esports team draft URL for a captain by cross-referencing
+ * the captain's esports teams with the sheet team name.
+ */
+export async function resolveTeamDraftUrl(
+  captainAccountId: string | null | undefined,
+  sheetTeamName?: string | null
+): Promise<{ draftUrl: string; matchedTeamName?: string }> {
+  const cleanSheetName = (sheetTeamName || '').trim();
+  const normSheetName = cleanSheetName.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  if (captainAccountId) {
+    const teams = await fetchPlayerEsportsTeams(captainAccountId);
+
+    if (teams.length > 0) {
+      let matchedTeam: EsportsTeamInfo | undefined;
+
+      if (normSheetName) {
+        matchedTeam = teams.find((t) => {
+          const normTeam = t.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+          return normTeam === normSheetName || normTeam.includes(normSheetName) || normSheetName.includes(normTeam);
+        });
+      }
+
+      if (!matchedTeam && teams.length === 1) {
+        matchedTeam = teams[0];
+      }
+
+      if (matchedTeam) {
+        const slug = matchedTeam.name
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+        const draftUrl = `https://www.dotabuff.com/esports/teams/${matchedTeam.id}${slug ? `-${slug}` : ''}/drafts`;
+        return { draftUrl, matchedTeamName: matchedTeam.name };
+      }
+    }
+  }
+
+  if (cleanSheetName) {
+    return {
+      draftUrl: `https://www.dotabuff.com/esports/teams?q=${encodeURIComponent(cleanSheetName)}`,
+      matchedTeamName: cleanSheetName
+    };
+  }
+
+  if (captainAccountId) {
+    return {
+      draftUrl: `https://www.dotabuff.com/esports/players/${captainAccountId}/teams`
+    };
+  }
+
+  return { draftUrl: 'https://www.dotabuff.com/esports/teams' };
 }

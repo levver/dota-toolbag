@@ -11,6 +11,9 @@ export interface LeagueTeamResult {
   captainName: string;
   division: number | string;
   players: LeaguePlayerItem[];
+  teamName?: string;
+  teamDraftUrl?: string;
+  challongeUrl?: string;
 }
 
 export interface LeagueDivisionOption {

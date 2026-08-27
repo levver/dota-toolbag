@@ -53,8 +53,8 @@ export const StatColumn: React.FC<StatColumnProps> = ({ title, data }) => {
                 </div>
 
                 <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <span className="text-[10px] font-mono text-zinc-300 bg-canvas-card px-1.5 py-0.2 rounded-bespoke-sm border border-canvas-border">
-                    {hero.games}g
+                  <span className="text-[10px] font-mono font-bold text-zinc-400">
+                    {hero.games} ⚔
                   </span>
                   <span
                     className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-bespoke-sm text-black text-center min-w-[36px]"

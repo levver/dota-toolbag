@@ -11,11 +11,15 @@ export interface ClarityTeamResult {
   captainName: string;
   division: number;
   players: ClarityPlayerItem[];
+  teamName?: string;
+  teamDraftUrl?: string;
+  challongeUrl?: string;
 }
 
 export interface CellValue {
   text: string;
   num?: number;
+  link?: string;
 }
 
 export const MIN_VALID_MMR = 400;
@@ -134,6 +138,19 @@ export function extractSpreadsheetInfo(url: string): { spreadsheetId: string | n
   };
 }
 
+export function extractChallongeUrl(grid: CellValue[][]): string | null {
+  if (!grid || !Array.isArray(grid)) return null;
+  for (const row of grid) {
+    if (!row || !Array.isArray(row)) continue;
+    for (const cell of row) {
+      if (!cell?.text) continue;
+      const match = cell.text.match(/https?:\/\/[a-zA-Z0-9._-]*challonge\.com\/[a-zA-Z0-9_\-/]+/i);
+      if (match) return match[0];
+    }
+  }
+  return null;
+}
+
 /**
  * Fetches Google Sheet tab data using Google Visualization JSON endpoint.
  * Accurately includes column headers (cols) as Row 0.
@@ -165,21 +182,31 @@ export async function fetchGVizGrid(
     text: col?.label || col?.id || '',
   }));
 
-  const rows = data.table.rows.map((rowObj: { c?: Array<{ v?: unknown; f?: string } | null> }) => {
+    const rows = data.table.rows.map((rowObj: { c?: Array<{ v?: unknown; f?: string } | null> }) => {
     if (!rowObj?.c) return [];
     return rowObj.c.map((cell) => {
       if (!cell) return { text: '' };
       const vStr = cell.v !== null && cell.v !== undefined ? String(cell.v).trim() : '';
       const fStr = cell.f !== null && cell.f !== undefined ? String(cell.f).trim() : '';
 
-      // Preserve actual URL or numeric account ID if stored in value vs formatted text
       let textVal = fStr || vStr;
-      if (vStr.includes('http') || vStr.includes('players/') || /^\d{6,10}$/.test(vStr.replace(/,/g, ''))) {
+      let linkVal: string | undefined;
+
+      if (vStr.includes('http')) {
+        linkVal = vStr;
+      } else if (fStr.includes('http')) {
+        linkVal = fStr;
+      }
+
+      if (vStr.includes('http') && fStr && !fStr.includes('http')) {
+        textVal = fStr;
+        linkVal = vStr;
+      } else if (vStr.includes('players/') || /^\d{6,10}$/.test(vStr.replace(/,/g, ''))) {
         textVal = vStr;
       }
 
       const numVal = typeof cell.v === 'number' ? cell.v : (/^\d+(\.\d+)?$/.test(textVal.replace(/,/g, '')) ? parseFloat(textVal.replace(/,/g, '')) : undefined);
-      return { text: textVal, num: numVal };
+      return { text: textVal, num: numVal, link: linkVal };
     });
   });
 
@@ -470,9 +497,113 @@ export async function importTeamFromClaritySheet(
     });
   }
 
+  // Extract Team Name from Column D (index 3)
+  let teamName: string | undefined;
+  let teamLink: string | undefined;
+
+  // 1. First priority: check Column D (index 3) in the captain's row
+  const colDInCapRow = sheetGrid[captainRow]?.[3];
+  if (colDInCapRow?.text) {
+    const raw = colDInCapRow.text.trim();
+    const norm = normalizeName(raw);
+    if (raw && norm !== 'teamname' && norm !== 'team' && norm !== 'player' && norm !== 'mmr' && !norm.startsWith('average')) {
+      teamName = raw;
+      if (colDInCapRow.link) teamLink = colDInCapRow.link;
+    }
+  }
+
+  // 2. If not found in captainRow, check Column D across the team block or header row
+  if (!teamName) {
+    for (let r = Math.max(0, captainRow - 2); r <= Math.min(sheetGrid.length - 1, captainRow + TEAM_SIZE); r++) {
+      const cell = sheetGrid[r]?.[3];
+      if (!cell?.text) continue;
+      const raw = cell.text.trim();
+      const norm = normalizeName(raw);
+      if (
+        raw &&
+        norm !== 'teamname' &&
+        norm !== 'team' &&
+        norm !== 'player' &&
+        norm !== 'mmr' &&
+        !norm.startsWith('average') &&
+        norm !== 'false' &&
+        norm !== 'true'
+      ) {
+        teamName = raw;
+        if (cell.link) teamLink = cell.link;
+        break;
+      }
+    }
+  }
+
+  // 3. Fallback: check any column with header "Team Name" or "Team"
+  if (!teamName) {
+    const checkHeaderRows = [0, captainRow - 1].filter((r) => r >= 0 && r < sheetGrid.length);
+    for (const hr of checkHeaderRows) {
+      const headerRow = sheetGrid[hr];
+      for (let c = 0; c < headerRow.length; c++) {
+        const hText = normalizeName(headerRow[c]?.text || '');
+        if (hText === 'teamname' || hText === 'team' || hText === 'teamtitle') {
+          const val = (sheetGrid[captainRow]?.[c]?.text || '').trim();
+          if (val && !val.toLowerCase().includes('average') && !val.toLowerCase().includes('mmr') && val.length >= 2) {
+            teamName = val;
+            if (sheetGrid[captainRow]?.[c]?.link) teamLink = sheetGrid[captainRow]?.[c]?.link;
+            break;
+          }
+        }
+      }
+      if (teamName) break;
+    }
+  }
+
+  if (teamName && teamName.includes('dotabuff.com')) {
+    teamLink = teamName;
+    const match = teamName.match(/teams\/\d+-?([a-zA-Z0-9-_]+)?/i);
+    if (match && match[1]) {
+      teamName = match[1].replace(/-/g, ' ');
+    }
+  }
+
+  // Extract Dotabuff Team Drafts URL
+  let teamDraftUrl: string | undefined;
+  const candidateUrls = [teamLink, colDInCapRow?.link, colDInCapRow?.text];
+
+  for (let r = Math.max(0, captainRow - 2); r <= Math.min(sheetGrid.length - 1, captainRow + TEAM_SIZE); r++) {
+    for (let c = 0; c < sheetGrid[r].length; c++) {
+      const cell = sheetGrid[r][c];
+      if (cell?.link) candidateUrls.push(cell.link);
+      if (cell?.text && cell.text.includes('dotabuff.com')) candidateUrls.push(cell.text);
+    }
+  }
+
+  for (const url of candidateUrls) {
+    if (!url) continue;
+    const match = url.match(/https?:\/\/(?:www\.)?dotabuff\.com\/(?:esports\/)?teams\/(\d+)(?:-([a-zA-Z0-9-_]+))?/i);
+    if (match) {
+      const teamId = match[1];
+      const slug = match[2] ? `-${match[2]}` : '';
+      teamDraftUrl = `https://www.dotabuff.com/esports/teams/${teamId}${slug}/drafts`;
+      break;
+    }
+  }
+
+  if (!teamDraftUrl && teamName) {
+    const slugMatch = teamName.match(/^(\d+)(?:-([a-zA-Z0-9-_]+))?$/);
+    if (slugMatch) {
+      teamDraftUrl = `https://www.dotabuff.com/esports/teams/${teamName}/drafts`;
+    } else {
+      teamDraftUrl = `https://www.dotabuff.com/esports/teams?q=${encodeURIComponent(teamName)}`;
+    }
+  }
+
+  const challongeUrl = extractChallongeUrl(sheetGrid) || undefined;
+
   return {
     captainName: matchedCaptainName,
     division: divisionNumber,
     players,
+    teamName,
+    teamDraftUrl,
+    challongeUrl
   };
 }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { POSITIONS } from '../../utils/openDota';
 import { useUserContext } from '../../context/UserContext';
-import { Trophy, Users, RefreshCw, Crosshair } from 'lucide-react';
+import { Trophy, Users, RefreshCw, Crosshair, ExternalLink } from 'lucide-react';
 
 interface LineupInputsProps {
   inputs: string[];
@@ -12,6 +12,12 @@ interface LineupInputsProps {
   isLoading: boolean;
   heroMapLoading: boolean;
   message: { text: string; type: 'error' | 'success' | 'info' } | null;
+  scoutedTeam?: {
+    captainName: string;
+    teamName?: string;
+    teamDraftUrl?: string;
+    challongeUrl?: string;
+  } | null;
 }
 
 export const LineupInputs: React.FC<LineupInputsProps> = ({
@@ -23,6 +29,7 @@ export const LineupInputs: React.FC<LineupInputsProps> = ({
   isLoading,
   heroMapLoading,
   message,
+  scoutedTeam,
 }) => {
   const {
     activeLeagueId,
@@ -187,6 +194,50 @@ export const LineupInputs: React.FC<LineupInputsProps> = ({
                     </button>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {/* Scouted Team Metadata & Quick Links */}
+          {scoutedTeam && (
+            <div className="pt-2.5 border-t border-canvas-border flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-canvas-muted text-[11px] font-medium">Scouted:</span>
+                <span className="font-semibold text-canvas-text">{scoutedTeam.captainName}</span>
+                {scoutedTeam.teamName && (
+                  <span className="text-palette-blue text-[11px] font-medium bg-palette-blue-subtle px-2 py-0.5 rounded-bespoke border border-palette-blue-border">
+                    {scoutedTeam.teamName}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                {scoutedTeam.teamDraftUrl && (
+                  <a
+                    href={scoutedTeam.teamDraftUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-bespoke text-[11px] px-2.5 py-1 bg-palette-blue text-white hover:bg-palette-blue-hover font-medium flex items-center gap-1.5 shadow-xs transition"
+                    title="Open Dotabuff drafts for scouted team"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    <span>Team Drafts</span>
+                  </a>
+                )}
+
+                {scoutedTeam.challongeUrl && (
+                  <a
+                    href={scoutedTeam.challongeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-bespoke btn-surface text-[11px] px-2.5 py-1 text-canvas-text hover:text-palette-blue font-medium flex items-center gap-1.5 border border-canvas-border transition"
+                    title="Open Challonge tournament bracket"
+                  >
+                    <Trophy className="w-3 h-3 text-palette-gold" />
+                    <span>Challonge</span>
+                    <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+                  </a>
+                )}
               </div>
             </div>
           )}

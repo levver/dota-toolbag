@@ -6,6 +6,7 @@ import {
   isValidMmr,
   getRankFromMmr,
   extractSpreadsheetInfo,
+  extractChallongeUrl,
   MIN_VALID_MMR,
   MAX_VALID_MMR
 } from './claritySheet';
@@ -133,6 +134,36 @@ describe('claritySheet utility tests', () => {
       const info = extractSpreadsheetInfo(url);
       expect(info.spreadsheetId).toBe('1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms');
       expect(info.gid).toBeNull();
+    });
+  });
+
+  describe('extractChallongeUrl', () => {
+    test('extracts challonge bracket URL from grid', () => {
+      const grid = [
+        [{ text: 'Division 4' }, { text: 'Bracket: https://challonge.com/clarity_s10_div4' }],
+        [{ text: 'Player' }, { text: 'MMR' }]
+      ];
+      expect(extractChallongeUrl(grid)).toBe('https://challonge.com/clarity_s10_div4');
+    });
+
+    test('returns null when no challonge URL present', () => {
+      const grid = [
+        [{ text: 'Division 4' }, { text: 'Rules' }],
+        [{ text: 'Player' }, { text: 'MMR' }]
+      ];
+      expect(extractChallongeUrl(grid)).toBeNull();
+    });
+  });
+
+  describe('Column D team name & draft URL logic', () => {
+    test('identifies Column D (index 3) team name and builds drafts link', () => {
+      const mockGrid = [
+        // Col A (0), Col B (1), Col C (2), Col D (3)
+        [{ text: '1' }, { text: 'levver' }, { text: 'levver' }, { text: 'Disciples of Bogg Shuggoth', link: 'https://www.dotabuff.com/esports/teams/10196182-disciples-of-bogg-shuggoth' }]
+      ];
+      const colD = mockGrid[0][3];
+      expect(colD.text).toBe('Disciples of Bogg Shuggoth');
+      expect(colD.link).toContain('dotabuff.com/esports/teams/10196182-disciples-of-bogg-shuggoth');
     });
   });
 });

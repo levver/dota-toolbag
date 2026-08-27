@@ -368,22 +368,58 @@ export const ClarityImportModal: React.FC<ClarityImportModalProps> = ({
             </form>
           ) : (
             <div className="space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-canvas-border text-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-canvas-border text-xs">
                 <div>
-                  <span className="font-semibold text-canvas-text">
-                    Team: {teamResult?.captainName}
-                  </span>
-                  <span className="text-[11px] text-canvas-muted ml-2">
-                    (Division {teamResult?.division})
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-semibold text-canvas-text">
+                      {teamResult?.captainName}
+                    </span>
+                    {teamResult?.teamName && (
+                      <span className="text-palette-blue text-[11px] font-medium bg-palette-blue-subtle px-1.5 py-0.5 rounded-bespoke border border-palette-blue-border">
+                        {teamResult.teamName}
+                      </span>
+                    )}
+                    <span className="text-[11px] text-canvas-muted ml-1">
+                      (Division {teamResult?.division})
+                    </span>
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={resetModal}
-                  className="text-[11px] text-palette-blue hover:underline"
-                >
-                  Change Captain / Division
-                </button>
+
+                <div className="flex items-center gap-2">
+                  {teamResult?.teamDraftUrl && (
+                    <a
+                      href={teamResult.teamDraftUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] text-palette-blue hover:underline flex items-center gap-1"
+                      title="Open team drafts on Dotabuff"
+                    >
+                      <span>Drafts</span>
+                      <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  )}
+
+                  {teamResult?.challongeUrl && (
+                    <a
+                      href={teamResult.challongeUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] text-palette-gold-text hover:underline flex items-center gap-1"
+                      title="Open Challonge tournament bracket"
+                    >
+                      <span>Challonge</span>
+                      <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={resetModal}
+                    className="text-[11px] text-canvas-muted hover:text-canvas-text ml-1"
+                  >
+                    Change
+                  </button>
+                </div>
               </div>
 
               <div className="text-[11px] text-canvas-muted leading-tight">

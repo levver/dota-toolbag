@@ -11,7 +11,7 @@ A unified, modern React web application consolidating **Dota Hero Stats Puller**
 - **Multi-Period Metrics**:
   - **All-Time** top played heroes & winrates.
   - **Last 30 Days (Monthly)** hero pool & meta comfort picks.
-  - **Tournament / Pro Matches (180 Days)** lobby type 1 competitive stats.
+  - **Tournament / Pro Matches (90 Days)** lobby type 1 competitive stats.
 - **Player Details**: Persona name, avatar, Dotabuff link, and current rank medal with Immortal leaderboard positioning.
 - **Color-Coded Winrate Badges**: Real-time calculated contrast gradient.
 - **1-Click Text Summary**: Formats all 5 players' data into clean text and copies directly to clipboard for sharing with coaches and teammates.

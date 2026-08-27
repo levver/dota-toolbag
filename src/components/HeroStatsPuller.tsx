@@ -21,7 +21,12 @@ export const HeroStatsPuller: React.FC = () => {
   const [heroMapLoading, setHeroMapLoading] = useState(true);
   const [results, setResults] = useState<Array<{ profile: PlayerProfileResult; positionIndex: number }>>([]);
   const [message, setMessage] = useState<{ text: string; type: 'error' | 'success' | 'info' } | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [scoutedTeam, setScoutedTeam] = useState<{
+    captainName: string;
+    teamName?: string;
+    teamDraftUrl?: string;
+    challongeUrl?: string;
+  } | null>(null);
 
   const heroMapRef = useRef<Record<number, HeroInfo>>({});
 
@@ -151,9 +156,12 @@ export const HeroStatsPuller: React.FC = () => {
     executeFetch(inputs);
   };
 
+  const [copied, setCopied] = useState(false);
+
   const handleClear = () => {
     setInputs(['', '', '', '', '']);
     setResults([]);
+    setScoutedTeam(null);
     setMessage(null);
     updateUrlParams(['', '', '', '', '']);
   };
@@ -197,6 +205,13 @@ export const HeroStatsPuller: React.FC = () => {
         sheetUrl
       });
 
+      setScoutedTeam({
+        captainName: result.captainName,
+        teamName: result.teamName,
+        teamDraftUrl: result.teamDraftUrl,
+        challongeUrl: result.challongeUrl
+      });
+
       const orderedIds = result.players.map((p) => p.accountId || p.dotabuffUrl || '');
       setInputs(orderedIds);
       updateUrlParams(orderedIds);
@@ -219,6 +234,7 @@ export const HeroStatsPuller: React.FC = () => {
         isLoading={isLoading}
         heroMapLoading={heroMapLoading}
         message={message}
+        scoutedTeam={scoutedTeam}
       />
 
       {/* Results Section */}

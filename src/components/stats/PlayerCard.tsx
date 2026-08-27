@@ -70,7 +70,7 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({ player, positionIndex })
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <StatColumn title="All-Time Heroes" data={player.allTime} />
         <StatColumn title="Last Month Heroes" data={player.monthly} />
-        <StatColumn title="Recent Tournament Games" data={player.pro} />
+        <StatColumn title="Recent Tournament Games (All teams)" data={player.pro} />
       </div>
     </div>
   );
