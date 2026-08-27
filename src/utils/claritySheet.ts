@@ -22,12 +22,67 @@ export function normalizeName(str: string): string {
   return (str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
-export function extractDotaAccountId(val: string): string | null {
-  if (!val) return null;
+export function cleanPlayerName(name: string): string {
+  return (name || '')
+    .replace(/\s*\(c\)\s*$/i, '')
+    .replace(/\s*\[c\]\s*$/i, '')
+    .replace(/\s*\(sub\)\s*$/i, '')
+    .replace(/\s*\[sub\]\s*$/i, '')
+    .replace(/^captain:\s*/i, '')
+    .replace(/^team\s+([^:]+):?$/i, '$1')
+    .trim();
+}
+
+export function extractDotaAccountId(val: unknown): string | null {
+  if (val === null || val === undefined) return null;
   const str = String(val).trim();
-  const match = str.match(/players\/(\d+)/i) || str.match(/(?:dotabuff\.com|opendota\.com)\/players\/(\d+)/i);
-  if (match && match[1]) return match[1];
-  if (/^\d{6,10}$/.test(str)) return str;
+  if (!str) return null;
+
+  // Ignore literal placeholder labels like "DB Link", "DB", "Dotabuff"
+  const lower = str.toLowerCase();
+  if (
+    lower === 'db link' ||
+    lower === 'db' ||
+    lower === 'dotabuff' ||
+    lower === 'link' ||
+    lower === 'opendota' ||
+    lower === 'db profile' ||
+    lower === 'dotabuff link' ||
+    lower === 'profile link' ||
+    lower === 'steam profile'
+  ) {
+    return null;
+  }
+
+  // 1. Match Dotabuff or OpenDota URL
+  const urlMatch = str.match(/(?:dotabuff\.com|opendota\.com)\/players\/(\d+)/i) || str.match(/players\/(\d+)/i);
+  if (urlMatch && urlMatch[1]) return urlMatch[1];
+
+  // 2. Steam ID64 URL conversion
+  const steamMatch = str.match(/steamcommunity\.com\/profiles\/(7656119\d{10})/i);
+  if (steamMatch && steamMatch[1]) {
+    try {
+      const id64 = BigInt(steamMatch[1]);
+      const id32 = id64 - BigInt('76561197960265728');
+      return id32.toString();
+    } catch {}
+  }
+
+  // 3. Match Steam ID32 format e.g. [U:1:86745123]
+  const steam32Match = str.match(/\[U:1:(\d+)\]/i);
+  if (steam32Match && steam32Match[1]) {
+    return steam32Match[1];
+  }
+
+  // 4. Plain Dota Account ID (strip commas if formatted as number in sheet)
+  const digitsOnly = str.replace(/,/g, '').trim();
+  if (/^\d{6,10}$/.test(digitsOnly)) {
+    const num = parseInt(digitsOnly, 10);
+    if (num > 20000) {
+      return digitsOnly;
+    }
+  }
+
   return null;
 }
 
@@ -83,8 +138,16 @@ export async function fetchGVizGrid(
     if (!rowObj?.c) return [];
     return rowObj.c.map((cell) => {
       if (!cell) return { text: '' };
-      const textVal = cell.f ?? (cell.v !== null && cell.v !== undefined ? String(cell.v).trim() : '');
-      const numVal = typeof cell.v === 'number' ? cell.v : (/^\d+(\.\d+)?$/.test(textVal) ? parseFloat(textVal) : undefined);
+      const vStr = cell.v !== null && cell.v !== undefined ? String(cell.v).trim() : '';
+      const fStr = cell.f !== null && cell.f !== undefined ? String(cell.f).trim() : '';
+
+      // Retain URL or raw account ID if stored in value vs display label
+      let textVal = fStr || vStr;
+      if (vStr.includes('http') || vStr.includes('players/') || /^\d{6,10}$/.test(vStr.replace(/,/g, ''))) {
+        textVal = vStr;
+      }
+
+      const numVal = typeof cell.v === 'number' ? cell.v : (/^\d+(\.\d+)?$/.test(textVal.replace(/,/g, '')) ? parseFloat(textVal.replace(/,/g, '')) : undefined);
       return { text: textVal, num: numVal };
     });
   });
@@ -93,7 +156,7 @@ export async function fetchGVizGrid(
 let masterMapCache: { spreadsheetId: string; map: Map<string, { accountId: string; dotabuffUrl: string; mmr?: number }> } | null = null;
 
 /**
- * Fast master player lookup: checks '04a _ Player List' first, only falling back if needed.
+ * Fast master player lookup: checks '04a _ Player List', '05 _ Full Account List', '03 _ Final Responses'.
  */
 export async function fetchMasterPlayerMap(
   spreadsheetId: string
@@ -101,7 +164,20 @@ export async function fetchMasterPlayerMap(
   if (masterMapCache?.spreadsheetId === spreadsheetId) return masterMapCache.map;
 
   const map = new Map<string, { accountId: string; dotabuffUrl: string; mmr?: number }>();
-  const tabs = ['04a _ Player List', '04a_Player List', '05 _ Full Account List', '03 _ Final Responses'];
+  const tabs = [
+    '04a _ Player List',
+    '05 _ Full Account List',
+    '05 _ Account List',
+    '03 _ Final Responses',
+    '03 _ Responses',
+    '04b _ Player List',
+    '04c _ Player List',
+    '04d _ Player List',
+    '04 _ Player List',
+    'Player List',
+    'Draft Pool',
+    'Players'
+  ];
 
   for (const tabName of tabs) {
     try {
@@ -113,7 +189,7 @@ export async function fetchMasterPlayerMap(
           const names: string[] = [];
 
           row.forEach((cell) => {
-            if (!cell.text) return;
+            if (!cell?.text) return;
             const id = extractDotaAccountId(cell.text);
             if (id) foundId = id;
 
@@ -121,30 +197,43 @@ export async function fetchMasterPlayerMap(
               mmr = Math.round(cell.num);
             }
 
-            const low = cell.text.toLowerCase();
-            if (!low.includes('dotabuff') && !low.includes('db link') && !low.includes('opendota') && !low.includes('http') && !low.includes('mmr') && !low.includes('coins') && !/^\d+$/.test(cell.text) && cell.text.length >= 2) {
-              names.push(cell.text.trim());
+            const cleanStr = cell.text.trim();
+            const low = cleanStr.toLowerCase();
+            if (
+              !low.includes('dotabuff') &&
+              !low.includes('db link') &&
+              !low.includes('opendota') &&
+              !low.includes('http') &&
+              !low.includes('mmr') &&
+              !low.includes('coins') &&
+              !/^\d+$/.test(cleanStr.replace(/,/g, '')) &&
+              cleanStr.length >= 2
+            ) {
+              names.push(cleanStr);
             }
           });
 
           if (foundId && names.length > 0) {
             names.forEach((n) => {
               const norm = normalizeName(n);
+              const cleanedNorm = normalizeName(cleanPlayerName(n));
+              const entry = {
+                accountId: foundId!,
+                dotabuffUrl: `https://www.dotabuff.com/players/${foundId}`,
+                mmr,
+              };
               if (norm.length >= 2 && !map.has(norm)) {
-                map.set(norm, {
-                  accountId: foundId!,
-                  dotabuffUrl: `https://www.dotabuff.com/players/${foundId}`,
-                  mmr,
-                });
+                map.set(norm, entry);
+              }
+              if (cleanedNorm.length >= 2 && !map.has(cleanedNorm)) {
+                map.set(cleanedNorm, entry);
               }
             });
           }
         });
-
-        if (map.size > 0) break; // Priority tab succeeded
       }
     } catch {
-      // fallback to next tab
+      // Continue to next tab candidate
     }
   }
 
@@ -163,8 +252,8 @@ export async function importTeamFromClaritySheet(
   const { spreadsheetId, gid } = extractSpreadsheetInfo(spreadsheetUrl);
   if (!spreadsheetId) throw new Error('Invalid Google Sheets URL.');
 
-  const cleanCaptain = captainQuery.trim().toLowerCase();
-  const normCaptain = normalizeName(captainQuery);
+  const cleanCaptain = cleanPlayerName(captainQuery).toLowerCase();
+  const normCaptain = normalizeName(cleanCaptain);
   if (!cleanCaptain) throw new Error('Please enter a captain name.');
 
   const divLetter = ['', 'a', 'b', 'c', 'd', 'e', 'f'][divisionNumber] || '';
@@ -201,16 +290,30 @@ export async function importTeamFromClaritySheet(
 
   const masterMap = await fetchMasterPlayerMap(spreadsheetId);
 
-  // Locate true team block (scored against summary table)
-  interface Match { row: number; col: number; text: string; score: number }
+  // Locate team block
+  interface Match {
+    row: number;
+    col: number;
+    text: string;
+    score: number;
+  }
   const matches: Match[] = [];
 
   for (let r = 0; r < sheetGrid.length; r++) {
     for (let c = 0; c < sheetGrid[r].length; c++) {
-      const text = sheetGrid[r][c].text.toLowerCase();
+      const cell = sheetGrid[r][c];
+      const text = (cell?.text || '').toLowerCase();
       const norm = normalizeName(text);
-      if (text && (text === cleanCaptain || norm === normCaptain || (normCaptain.length >= 3 && norm.includes(normCaptain)))) {
-        let score = 0;
+      const cleanedNorm = normalizeName(cleanPlayerName(text));
+
+      if (
+        text &&
+        (text === cleanCaptain ||
+          norm === normCaptain ||
+          cleanedNorm === normCaptain ||
+          (normCaptain.length >= 3 && (norm.includes(normCaptain) || normCaptain.includes(norm))))
+      ) {
+        let score = (text === cleanCaptain || norm === normCaptain || cleanedNorm === normCaptain) ? 100 : 50;
         const row = sheetGrid[r];
         const next1 = row[c + 1]?.text || '';
         const next2 = row[c + 2]?.text.toLowerCase() || '';
@@ -221,7 +324,7 @@ export async function importTeamFromClaritySheet(
         if (prev.some((h) => h.text.toLowerCase().includes('player') || h.text.toLowerCase().includes('mmr'))) score += 30;
         if (next1.length > 4 && !/^\d+$/.test(next1.replace(/,/g, ''))) score -= 30;
 
-        matches.push({ row: r, col: c, text: sheetGrid[r][c].text, score });
+        matches.push({ row: r, col: c, text: cell.text, score });
       }
     }
   }
@@ -231,16 +334,26 @@ export async function importTeamFromClaritySheet(
   }
 
   matches.sort((a, b) => b.score - a.score);
-  const { row: captainRow, col: captainCol, text: matchedCaptainName } = matches[0];
+  let { row: captainRow, col: captainCol, text: matchedCaptainName } = matches[0];
 
-  let playerCol = captainCol, mmrCol = captainCol + 1, dbCol = captainCol + 2;
+  const mmrAtMatch = (sheetGrid[captainRow]?.[captainCol + 1]?.text || '').replace(/,/g, '').trim();
+  if (!/^\d{3,5}$/.test(mmrAtMatch) && captainRow + 1 < sheetGrid.length) {
+    const mmrBelow = (sheetGrid[captainRow + 1]?.[captainCol + 1]?.text || '').replace(/,/g, '').trim();
+    if (/^\d{3,5}$/.test(mmrBelow)) {
+      captainRow = captainRow + 1;
+    }
+  }
+
+  let playerCol = captainCol,
+    mmrCol = captainCol + 1,
+    dbCol = captainCol + 2;
   if (captainRow > 0) {
     const h = sheetGrid[captainRow - 1];
     for (let c = Math.max(0, captainCol - 2); c <= Math.min(h.length - 1, captainCol + 4); c++) {
       const ht = h[c]?.text.toLowerCase() || '';
-      if (ht.includes('player')) playerCol = c;
-      if (ht.includes('mmr')) mmrCol = c;
-      if (ht.includes('dotabuff') || ht.includes('db')) dbCol = c;
+      if (ht.includes('player') || ht.includes('name')) playerCol = c;
+      if (ht.includes('mmr') || ht.includes('rank')) mmrCol = c;
+      if (ht.includes('dotabuff') || ht.includes('db') || ht.includes('link')) dbCol = c;
     }
   }
 
@@ -251,7 +364,8 @@ export async function importTeamFromClaritySheet(
     if (r >= sheetGrid.length) break;
 
     const row = sheetGrid[r];
-    const pName = (row[playerCol]?.text.trim()) || (offset === 0 ? matchedCaptainName : '');
+    const rawName = row[playerCol]?.text.trim() || (offset === 0 ? matchedCaptainName : '');
+    const pName = cleanPlayerName(rawName);
     if (pName.toLowerCase().includes('average') || pName.toLowerCase().includes('mmr:')) break;
 
     let mmrNum: number | null = null;
@@ -259,11 +373,26 @@ export async function importTeamFromClaritySheet(
     if (/^\d+$/.test(rawMmr)) mmrNum = parseInt(rawMmr, 10);
     else if (row[mmrCol]?.num) mmrNum = Math.round(row[mmrCol]!.num!);
 
-    let foundId = extractDotaAccountId(row[dbCol]?.text || '');
+    // 1. Extract from dbCol text
+    let foundId = extractDotaAccountId(row[dbCol]?.text);
 
+    // 2. Search adjacent row cells for link or ID
+    if (!foundId) {
+      for (let c = Math.max(0, playerCol - 1); c <= Math.min(row.length - 1, dbCol + 4); c++) {
+        const id = extractDotaAccountId(row[c]?.text);
+        if (id) {
+          foundId = id;
+          break;
+        }
+      }
+    }
+
+    // 3. Fallback to masterMap lookup
     if (!foundId && pName) {
       const norm = normalizeName(pName);
-      const master = masterMap.get(norm);
+      const rawNorm = normalizeName(rawName);
+      const master = masterMap.get(norm) || masterMap.get(rawNorm);
+
       if (master) {
         foundId = master.accountId;
         if (!mmrNum && master.mmr) mmrNum = master.mmr;
@@ -290,7 +419,14 @@ export async function importTeamFromClaritySheet(
 
   while (players.length < 5) {
     const idx = players.length + 1;
-    players.push({ name: `Player ${idx}`, mmr: null, rankText: 'Unranked', dotabuffUrl: '', accountId: null, assignedPosition: idx });
+    players.push({
+      name: `Player ${idx}`,
+      mmr: null,
+      rankText: 'Unranked',
+      dotabuffUrl: '',
+      accountId: null,
+      assignedPosition: idx,
+    });
   }
 
   return {

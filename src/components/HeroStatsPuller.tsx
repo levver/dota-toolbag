@@ -11,16 +11,17 @@ import {
 import { ToolLayout } from './ToolLayout';
 import { LineupInputs } from './stats/LineupInputs';
 import { PlayerCard } from './stats/PlayerCard';
-import { ClarityImportModal } from './stats/ClarityImportModal';
+import { useUserContext } from '../context/UserContext';
+import { getLeagueAdapter } from '../leagues/registry';
 
 export const HeroStatsPuller: React.FC = () => {
+  const { activeLeagueId, currentProfile, preferences } = useUserContext();
   const [inputs, setInputs] = useState<string[]>(['', '', '', '', '']);
   const [isLoading, setIsLoading] = useState(false);
   const [heroMapLoading, setHeroMapLoading] = useState(true);
-  const [results, setResults] = useState<PlayerProfileResult[]>([]);
+  const [results, setResults] = useState<Array<{ profile: PlayerProfileResult; positionIndex: number }>>([]);
   const [message, setMessage] = useState<{ text: string; type: 'error' | 'success' | 'info' } | null>(null);
   const [copied, setCopied] = useState(false);
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   const heroMapRef = useRef<Record<number, HeroInfo>>({});
 
@@ -91,24 +92,51 @@ export const HeroStatsPuller: React.FC = () => {
     setMessage(null);
     setResults([]);
 
-    const parsedIds = inputsToFetch.map((input) => parseInputForAccountId(input));
-    const validIds = parsedIds.filter((id): id is string => id !== null && id.length > 0);
+    const entriesWithPos = inputsToFetch
+      .map((input, idx) => ({ raw: input.trim(), accountId: parseInputForAccountId(input), posIdx: idx }))
+      .filter((e) => e.accountId !== null && e.accountId.length > 0);
 
-    if (validIds.length === 0) {
+    if (entriesWithPos.length === 0) {
       setMessage({ text: 'Please enter at least one valid Dota Account ID or Dotabuff URL.', type: 'error' });
       setIsLoading(false);
       return;
     }
 
     try {
-      const profiles = await Promise.all(
-        validIds.map((id) => fetchFullPlayerProfile(id, heroMapRef.current))
+      if (!heroMapRef.current || Object.keys(heroMapRef.current).length === 0) {
+        heroMapRef.current = await fetchHeroMap();
+      }
+
+      const settled = await Promise.allSettled(
+        entriesWithPos.map(async ({ accountId, posIdx }) => {
+          const profile = await fetchFullPlayerProfile(accountId!, heroMapRef.current);
+          return { profile, positionIndex: posIdx };
+        })
       );
-      setResults(profiles);
-      setMessage({
-        text: `Retrieved hero statistics for ${profiles.length} player(s).`,
-        type: 'success',
+
+      const successful: Array<{ profile: PlayerProfileResult; positionIndex: number }> = [];
+      const errors: string[] = [];
+
+      settled.forEach((res, i) => {
+        if (res.status === 'fulfilled') {
+          successful.push(res.value);
+        } else {
+          errors.push(entriesWithPos[i].raw);
+        }
       });
+
+      setResults(successful);
+
+      if (successful.length > 0) {
+        setMessage({
+          text: `Retrieved hero statistics for ${successful.length} player(s).${
+            errors.length > 0 ? ` (${errors.length} player(s) failed or private)` : ''
+          }`,
+          type: errors.length > 0 ? 'info' : 'success',
+        });
+      } else {
+        setMessage({ text: 'Failed to retrieve data for the entered accounts.', type: 'error' });
+      }
     } catch (err: unknown) {
       const error = err as Error;
       setMessage({ text: `Failed to retrieve data: ${error?.message || 'Unknown network error'}`, type: 'error' });
@@ -132,7 +160,8 @@ export const HeroStatsPuller: React.FC = () => {
 
   const handleCopyClipboard = async () => {
     if (results.length === 0) return;
-    const summary = generateTextSummary(results);
+    const profiles = results.map((r) => r.profile);
+    const summary = generateTextSummary(profiles);
     const success = await copyTextToClipboard(summary);
     if (success) {
       setCopied(true);
@@ -143,10 +172,40 @@ export const HeroStatsPuller: React.FC = () => {
     }
   };
 
-  const handleApplyClarityLineup = (orderedIds: string[]) => {
-    setInputs(orderedIds);
-    updateUrlParams(orderedIds);
-    executeFetch(orderedIds);
+  const handleDirectLoadCaptain = async (captainName: string) => {
+    if (!captainName) return;
+    const targetLeagueId = activeLeagueId || 'clarity';
+    const adapter = getLeagueAdapter(targetLeagueId);
+    if (!adapter) return;
+
+    const prof = preferences.leagueProfiles[targetLeagueId] || currentProfile;
+    const sheetUrl = prof?.sheetUrl;
+    const division = prof?.division || adapter.definition.defaultDivision;
+
+    if (!sheetUrl) {
+      setMessage({ text: 'Please configure your Google Sheet URL in League Settings (top header).', type: 'error' });
+      return;
+    }
+
+    setIsLoading(true);
+    setMessage(null);
+
+    try {
+      const result = await adapter.fetchTeam({
+        division,
+        captainName,
+        sheetUrl
+      });
+
+      const orderedIds = result.players.map((p) => p.accountId || p.dotabuffUrl || '');
+      setInputs(orderedIds);
+      updateUrlParams(orderedIds);
+      await executeFetch(orderedIds);
+    } catch (err: unknown) {
+      const error = err as Error;
+      setMessage({ text: `Failed to load team: ${error?.message || 'Unknown error'}`, type: 'error' });
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -155,18 +214,11 @@ export const HeroStatsPuller: React.FC = () => {
         inputs={inputs}
         onChangeInput={handleInputChange}
         onClear={handleClear}
-        onOpenImportModal={() => setIsImportModalOpen(true)}
+        onDirectLoadCaptain={handleDirectLoadCaptain}
         onSubmit={handleSubmit}
         isLoading={isLoading}
         heroMapLoading={heroMapLoading}
         message={message}
-      />
-
-      {/* Clarity Draft Sheet Import Modal */}
-      <ClarityImportModal
-        isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
-        onApplyLineup={handleApplyClarityLineup}
       />
 
       {/* Results Section */}
@@ -186,8 +238,8 @@ export const HeroStatsPuller: React.FC = () => {
           </div>
 
           <div className="space-y-3.5">
-            {results.map((player, pIdx) => (
-              <PlayerCard key={player.accountId + pIdx} player={player} positionIndex={pIdx} />
+            {results.map(({ profile, positionIndex }) => (
+              <PlayerCard key={profile.accountId + positionIndex} player={profile} positionIndex={positionIndex} />
             ))}
           </div>
         </div>

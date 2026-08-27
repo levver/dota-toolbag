@@ -1,6 +1,7 @@
 import React from 'react';
 import { TOOLS, TOOL_ACCENT_MAP } from '../config/tools';
 import { useTimerContext } from '../context/TimerContext';
+import { LeagueSelector } from './league/LeagueSelector';
 
 interface NavigationProps {
   activeTab: string;
@@ -27,13 +28,16 @@ export const Navigation: React.FC<NavigationProps> = ({
               alt="levver's toolbag"
               className="w-6 h-6 rounded-bespoke object-contain"
             />
-            <span className="font-semibold text-sm text-canvas-text tracking-tight">
+            <span className="font-semibold text-sm text-canvas-text tracking-tight hidden sm:inline">
               levver's toolbag
             </span>
           </div>
 
-          {/* Dynamic Navigation Tabs from Registry */}
-          <nav className="flex space-x-1.5 p-1 bg-canvas-card rounded-bespoke-lg border border-canvas-border">
+          <div className="flex items-center space-x-2 sm:space-x-3">
+            <LeagueSelector />
+
+            {/* Dynamic Navigation Tabs from Registry */}
+            <nav className="flex space-x-1.5 p-1 bg-canvas-card rounded-bespoke-lg border border-canvas-border">
             {TOOLS.map((tool) => {
               const isActive = activeTab === tool.id;
               const accent = TOOL_ACCENT_MAP[tool.accentColor];
@@ -71,6 +75,7 @@ export const Navigation: React.FC<NavigationProps> = ({
           </nav>
         </div>
       </div>
-    </header>
-  );
+    </div>
+  </header>
+);
 };

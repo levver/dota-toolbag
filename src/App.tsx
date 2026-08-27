@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { TOOLS } from './config/tools';
 import { Navigation } from './components/Navigation';
 import { TimerProvider } from './context/TimerContext';
+import { UserProvider } from './context/UserContext';
+import { LeagueConfigModal } from './components/league/LeagueConfigModal';
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState<string>(TOOLS[0].id);
@@ -43,6 +45,8 @@ function AppContent() {
         })}
       </main>
 
+      <LeagueConfigModal />
+
       <footer className="border-t border-canvas-border py-4 text-center text-xs text-canvas-muted">
         levver's toolbag
       </footer>
@@ -52,9 +56,11 @@ function AppContent() {
 
 export function App() {
   return (
-    <TimerProvider>
-      <AppContent />
-    </TimerProvider>
+    <UserProvider>
+      <TimerProvider>
+        <AppContent />
+      </TimerProvider>
+    </UserProvider>
   );
 }
 

@@ -10,6 +10,7 @@ export interface ToolDefinition {
   navLabel: string;
   accentColor: ToolAccentColor;
   component: React.ComponentType;
+  isLeagueIntegrated?: boolean;
 }
 
 export const TOOLS: ToolDefinition[] = [
@@ -19,6 +20,7 @@ export const TOOLS: ToolDefinition[] = [
     navLabel: 'Scouting',
     accentColor: 'red',
     component: HeroStatsPuller,
+    isLeagueIntegrated: true,
   },
   {
     id: 'reminder',
@@ -26,6 +28,7 @@ export const TOOLS: ToolDefinition[] = [
     navLabel: 'Alerts',
     accentColor: 'blue',
     component: VoiceReminder,
+    isLeagueIntegrated: false,
   },
 ];
 
