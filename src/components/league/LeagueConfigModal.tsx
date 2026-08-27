@@ -293,17 +293,6 @@ export const LeagueConfigModal: React.FC = () => {
                         );
                       })}
                     </div>
-
-                    {/* Optional custom input or adjustment */}
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={captainName}
-                        onChange={(e) => setCaptainName(e.target.value)}
-                        placeholder="Or enter custom captain name..."
-                        className="flex-1 px-3 py-1.5 bg-canvas-subtle border border-canvas-border rounded-bespoke text-canvas-text text-xs focus:outline-none focus:border-palette-blue transition"
-                      />
-                    </div>
                   </div>
                 ) : (
                   <input
