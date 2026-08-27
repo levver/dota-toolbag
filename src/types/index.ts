@@ -29,6 +29,7 @@ export interface PlayerProfileResult {
   avatarUrl: string;
   rankUrl: {
     url: string;
+    fallbackUrl?: string;
     text: string;
   };
   rankText: string;

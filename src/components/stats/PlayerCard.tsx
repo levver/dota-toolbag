@@ -54,10 +54,12 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({ player, positionIndex })
             alt={player.rankText}
             className="w-6 h-6 object-contain"
             onError={(e) => {
-              (e.target as HTMLElement).setAttribute(
-                'src',
-                'https://placehold.co/24x24/27272a/FFFFFF?text=R'
-              );
+              const target = e.target as HTMLImageElement;
+              if (player.rankUrl.fallbackUrl && target.src !== player.rankUrl.fallbackUrl) {
+                target.src = player.rankUrl.fallbackUrl;
+              } else {
+                target.src = 'https://placehold.co/24x24/27272a/FFFFFF?text=R';
+              }
             }}
           />
           <span className="text-[11px] text-canvas-text font-medium">{player.rankText}</span>

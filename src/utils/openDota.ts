@@ -2,8 +2,10 @@ import { HeroStat, HeroStatsSection, PlayerProfileResult } from '../types';
 import { storage } from './storage';
 
 export const OPENDOTA_BASE_URL = 'https://api.opendota.com/api';
-export const HERO_ASSET_BASE_URL = 'https://cdn.steamstatic.com/apps/dota2/images/dota_react/heroes/';
-export const RANK_ASSET_BASE_URL = 'https://www.opendota.com/assets/images/dota2/rank_icons/';
+export const LOCAL_HERO_BASE_URL = '/assets/heroes/';
+export const REMOTE_HERO_BASE_URL = 'https://cdn.steamstatic.com/apps/dota2/images/dota_react/heroes/';
+export const LOCAL_RANK_BASE_URL = '/assets/ranks/';
+export const REMOTE_RANK_BASE_URL = 'https://www.opendota.com/assets/images/dota2/rank_icons/';
 export const LOBBY_TYPE_PRO = 1;
 export const POSITIONS = ["Carry (Pos 1)", "Mid (Pos 2)", "Offlane (Pos 3)", "Soft Supp (Pos 4)", "Hard Supp (Pos 5)"];
 export const TOP_HEROES_COUNT = 10;
@@ -11,6 +13,7 @@ export const TOP_HEROES_COUNT = 10;
 export interface HeroInfo {
   name: string;
   iconUrl: string;
+  remoteIconUrl: string;
 }
 
 let heroMapCache: Record<number, HeroInfo> | null = null;
@@ -85,18 +88,15 @@ export function parseInputForAccountId(input: string): string | null {
   const trimmed = input.trim();
   if (!trimmed) return null;
 
-  // 1. Dotabuff / OpenDota / Steam URL regex: dotabuff.com/players/(\d+) or opendota.com/players/(\d+)
   const urlMatch = trimmed.match(/(?:dotabuff\.com|opendota\.com)\/players\/(\d+)/i);
   if (urlMatch && urlMatch[1]) {
     return urlMatch[1];
   }
 
-  // 2. Pure digits
   if (/^\d+$/.test(trimmed)) {
     return trimmed;
   }
 
-  // 3. Fallback: extract any digits sequence from the URL if contains /players/
   const fallbackMatch = trimmed.match(/players\/(\d+)/i);
   if (fallbackMatch && fallbackMatch[1]) {
     return fallbackMatch[1];
@@ -106,14 +106,13 @@ export function parseInputForAccountId(input: string): string | null {
 }
 
 /**
- * Fetches and caches the complete Dota 2 hero map from OpenDota.
+ * Fetches and caches the complete Dota 2 hero map with local-first asset URLs.
  */
 export async function fetchHeroMap(): Promise<Record<number, HeroInfo>> {
   if (heroMapCache && Object.keys(heroMapCache).length > 0) {
     return heroMapCache;
   }
 
-  // Check persistent storage
   const cached = storage.get<Record<number, HeroInfo> | null>('dota_hero_map_cache', null);
   if (cached && Object.keys(cached).length > 100) {
     heroMapCache = cached;
@@ -129,14 +128,19 @@ export async function fetchHeroMap(): Promise<Record<number, HeroInfo>> {
   const map: Record<number, HeroInfo> = {};
 
   data.forEach((hero) => {
-    let iconUrl = 'https://placehold.co/32x32/334155/FFFFFF?text=?';
+    let iconUrl = '/assets/heroes/unknown.png';
+    let remoteIconUrl = 'https://placehold.co/32x32/334155/FFFFFF?text=?';
+
     if (hero.name) {
       const safeName = hero.name.replace('npc_dota_hero_', '');
-      iconUrl = `${HERO_ASSET_BASE_URL}${safeName}.png`;
+      iconUrl = `${LOCAL_HERO_BASE_URL}${safeName}.png`;
+      remoteIconUrl = `${REMOTE_HERO_BASE_URL}${safeName}.png`;
     }
+
     map[hero.id] = {
       name: hero.localized_name,
-      iconUrl
+      iconUrl,
+      remoteIconUrl,
     };
   });
 
@@ -146,9 +150,9 @@ export async function fetchHeroMap(): Promise<Record<number, HeroInfo>> {
 }
 
 /**
- * Rank Medal Calculation
+ * Rank Medal Calculation with local-first assets and remote fallback.
  */
-export function getRankIconUrl(rankTier: number | null | undefined): { url: string; text: string } {
+export function getRankIconUrl(rankTier: number | null | undefined): { url: string; fallbackUrl: string; text: string } {
   const tierMap: Record<number, string> = {
     0: 'Uncalibrated',
     1: 'Herald',
@@ -161,10 +165,11 @@ export function getRankIconUrl(rankTier: number | null | undefined): { url: stri
     8: 'Immortal'
   };
 
-  const UNCALIBRATED_ICON_URL = `${RANK_ASSET_BASE_URL}rank_icon_0.png`;
+  const defaultLocal = `${LOCAL_RANK_BASE_URL}rank_icon_0.png`;
+  const defaultRemote = `${REMOTE_RANK_BASE_URL}rank_icon_0.png`;
 
   if (!rankTier || typeof rankTier !== 'number' || rankTier < 10) {
-    return { url: UNCALIBRATED_ICON_URL, text: tierMap[0] };
+    return { url: defaultLocal, fallbackUrl: defaultRemote, text: tierMap[0] };
   }
 
   const tier = Math.floor(rankTier / 10);
@@ -177,16 +182,17 @@ export function getRankIconUrl(rankTier: number | null | undefined): { url: stri
       rankText += ` ${star}`;
     }
     return {
-      url: `${RANK_ASSET_BASE_URL}${filename}`,
+      url: `${LOCAL_RANK_BASE_URL}${filename}`,
+      fallbackUrl: `${REMOTE_RANK_BASE_URL}${filename}`,
       text: rankText
     };
   }
 
-  return { url: UNCALIBRATED_ICON_URL, text: tierMap[0] };
+  return { url: defaultLocal, fallbackUrl: defaultRemote, text: tierMap[0] };
 }
 
 /**
- * Calculates winrate color: subtle muted indicator
+ * Calculates winrate color indicator.
  */
 export function getWinrateColor(wrText: string): string {
   let winrate = 0;
@@ -260,7 +266,7 @@ export async function fetchHeroStats(
 
         return {
           name: heroInfo ? heroInfo.name : `Hero #${heroId}`,
-          iconUrl: heroInfo ? heroInfo.iconUrl : 'https://placehold.co/32x32/334155/FFFFFF?text=?',
+          iconUrl: heroInfo ? heroInfo.iconUrl : '/assets/heroes/unknown.png',
           games,
           winrate,
           winCount: wins
@@ -349,7 +355,7 @@ export async function fetchFullPlayerProfile(
 }
 
 /**
- * Formats all player results into a clean text summary, aligning games played in the middle and winrate on the right.
+ * Formats all player results into a clean text summary.
  */
 export function generateTextSummary(results: PlayerProfileResult[]): string {
   let summary = "--- Dota 2 Hero Stats Summary ---\n\n";
