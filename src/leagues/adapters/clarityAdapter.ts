@@ -33,8 +33,6 @@ export const clarityDefinition: LeagueDefinition = {
   accentColor: 'blue'
 };
 
-const captainsCache = new Map<string, string[]>();
-
 export const ClarityLeagueAdapter: LeagueAdapter = {
   id: 'clarity',
   definition: clarityDefinition,
@@ -45,11 +43,6 @@ export const ClarityLeagueAdapter: LeagueAdapter = {
     if (!spreadsheetId) return [];
 
     const divNum = typeof division === 'number' ? division : parseInt(String(division), 10) || 1;
-    const cacheKey = `${spreadsheetId}_div_${divNum}_${gid || ''}`;
-    if (captainsCache.has(cacheKey)) {
-      return captainsCache.get(cacheKey)!;
-    }
-
     const divLetter = ['', 'a', 'b', 'c', 'd', 'e', 'f'][divNum] || '';
     const tabCandidates = [
       `06${divLetter} _ Division ${divNum}`,
@@ -84,7 +77,7 @@ export const ClarityLeagueAdapter: LeagueAdapter = {
       'score', 'wins', 'losses', 'tier', 'status', 'unranked', 'tbd', 'open', 'pos 1', 'pos 2',
       'pos 3', 'pos 4', 'pos 5', 'pos', 'role', 'name', 'account id', 'id', 'role/rank', 'false', 'true',
       'captain name', 'team name', 'coin allocation', 'players still to draft', 'eligible to bid',
-      'exhaustion rank', 'draft order', 'fa', 'average mmr', 'averagemmr', 'total mmr'
+      'exhaustion rank', 'draft order', 'fa', 'average mmr', 'averagemmr', 'total mmr', 'division format'
     ]);
 
     const addCaptain = (rawName: string) => {
@@ -105,17 +98,23 @@ export const ClarityLeagueAdapter: LeagueAdapter = {
       }
     };
 
-    // Strategy 1: Read the explicit "Captain Name" column in the draft board
+    // Strategy 1: Scan the "Captain Name" column in the draft order table
     for (let r = 0; r < sheetGrid.length; r++) {
       for (let c = 0; c < sheetGrid[r].length; c++) {
         const headerNorm = normalizeName(sheetGrid[r][c]?.text || '');
-        if (headerNorm === 'captainname' || (headerNorm === 'captain' && c < 5)) {
-          // Read all captain rows down this column
+        if (headerNorm === 'captainname' || headerNorm === 'captain') {
           for (let rowIdx = r + 1; rowIdx < sheetGrid.length; rowIdx++) {
             const val = (sheetGrid[rowIdx]?.[c]?.text || '').trim();
             if (!val || /^\d+$/.test(val)) continue;
             const normVal = normalizeName(val);
-            if (normVal.includes('average') || normVal.includes('total') || normVal.includes('format')) break;
+            if (
+              normVal.includes('average') ||
+              normVal.includes('total') ||
+              normVal.includes('divisionformat') ||
+              normVal.includes('challonge')
+            ) {
+              continue;
+            }
             addCaptain(val);
           }
         }
@@ -141,7 +140,6 @@ export const ClarityLeagueAdapter: LeagueAdapter = {
       }
     }
 
-    captainsCache.set(cacheKey, captains);
     return captains;
   },
 
