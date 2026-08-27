@@ -10,10 +10,18 @@ export const LOBBY_TYPE_PRO = 1;
 export const POSITIONS = ["Carry (Pos 1)", "Mid (Pos 2)", "Offlane (Pos 3)", "Soft Supp (Pos 4)", "Hard Supp (Pos 5)"];
 export const TOP_HEROES_COUNT = 10;
 
+// Cache TTL: 6 hours (in milliseconds)
+export const PROFILE_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+
 export interface HeroInfo {
   name: string;
   iconUrl: string;
   remoteIconUrl: string;
+}
+
+interface CachedProfile {
+  data: PlayerProfileResult;
+  timestamp: number;
 }
 
 let heroMapCache: Record<number, HeroInfo> | null = null;
@@ -282,13 +290,27 @@ export async function fetchHeroStats(
 }
 
 /**
- * Fetches full player profile with retries and rate limit queue.
+ * Fetches full player profile with local caching and retries.
  */
 export async function fetchFullPlayerProfile(
   accountId: string,
   heroMap: Record<number, HeroInfo>,
+  forceRefresh = false,
   maxRetries = 3
 ): Promise<PlayerProfileResult> {
+  const cacheKey = `dota_profile_cache_${accountId}`;
+
+  // 1. Check local cache if not forcing refresh
+  if (!forceRefresh) {
+    const cached = storage.get<CachedProfile | null>(cacheKey, null);
+    if (cached && cached.data && Date.now() - cached.timestamp < PROFILE_CACHE_TTL_MS) {
+      // Return cached profile if it had successful stats
+      if (cached.data.allTime?.success || cached.data.monthly?.success) {
+        return cached.data;
+      }
+    }
+  }
+
   let lastError: unknown = null;
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -322,7 +344,7 @@ export async function fetchFullPlayerProfile(
         }
       }
 
-      return {
+      const result: PlayerProfileResult = {
         accountId,
         name: playerName,
         avatarUrl,
@@ -332,6 +354,16 @@ export async function fetchFullPlayerProfile(
         monthly: monthlyResult,
         pro: proResult
       };
+
+      // Save to local cache
+      if (result.allTime.success || result.monthly.success) {
+        storage.set<CachedProfile>(cacheKey, {
+          data: result,
+          timestamp: Date.now(),
+        });
+      }
+
+      return result;
     } catch (error) {
       lastError = error;
       if (attempt < maxRetries - 1) {

@@ -12,6 +12,7 @@ import { ToolLayout } from './ToolLayout';
 import { LineupInputs } from './stats/LineupInputs';
 import { PlayerCard } from './stats/PlayerCard';
 import { ClarityImportModal } from './stats/ClarityImportModal';
+import { RotateCw } from 'lucide-react';
 
 export const HeroStatsPuller: React.FC = () => {
   const [inputs, setInputs] = useState<string[]>(['', '', '', '', '']);
@@ -58,7 +59,7 @@ export const HeroStatsPuller: React.FC = () => {
       if (valid.length > 0) {
         fetchHeroMap().then((map) => {
           heroMapRef.current = map;
-          executeFetch(initialInputs);
+          executeFetch(initialInputs, false);
         });
       }
     }
@@ -86,7 +87,7 @@ export const HeroStatsPuller: React.FC = () => {
     setInputs(updated);
   };
 
-  const executeFetch = async (inputsToFetch: string[]) => {
+  const executeFetch = async (inputsToFetch: string[], forceRefresh = false) => {
     setIsLoading(true);
     setMessage(null);
     setResults([]);
@@ -102,10 +103,13 @@ export const HeroStatsPuller: React.FC = () => {
 
     try {
       const profiles = await Promise.all(
-        validIds.map((id) => fetchFullPlayerProfile(id, heroMapRef.current))
+        validIds.map((id) => fetchFullPlayerProfile(id, heroMapRef.current, forceRefresh))
       );
       setResults(profiles);
-      setMessage({ text: `Successfully retrieved hero statistics for ${profiles.length} player(s).`, type: 'success' });
+      setMessage({
+        text: `Retrieved hero statistics for ${profiles.length} player(s).`,
+        type: 'success',
+      });
     } catch (err: unknown) {
       const error = err as Error;
       setMessage({ text: `Failed to retrieve data: ${error?.message || 'Unknown network error'}`, type: 'error' });
@@ -117,7 +121,11 @@ export const HeroStatsPuller: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     updateUrlParams(inputs);
-    executeFetch(inputs);
+    executeFetch(inputs, false);
+  };
+
+  const handleForceRefresh = () => {
+    executeFetch(inputs, true);
   };
 
   const handleClear = () => {
@@ -143,7 +151,7 @@ export const HeroStatsPuller: React.FC = () => {
   const handleApplyClarityLineup = (orderedIds: string[]) => {
     setInputs(orderedIds);
     updateUrlParams(orderedIds);
-    executeFetch(orderedIds);
+    executeFetch(orderedIds, false);
   };
 
   return (
@@ -169,17 +177,30 @@ export const HeroStatsPuller: React.FC = () => {
       {/* Results Section */}
       {results.length > 0 && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs font-semibold text-canvas-muted uppercase tracking-wider">
               Profile Analysis ({results.length})
             </span>
 
-            <button
-              onClick={handleCopyClipboard}
-              className="btn-bespoke btn-surface text-xs px-3.5 py-1.5 font-medium flex items-center gap-1.5"
-            >
-              <span>{copied ? 'Copied Summary! ✅' : 'Copy Formatted Summary'}</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleForceRefresh}
+                disabled={isLoading}
+                title="Bypass local cache and query fresh data from OpenDota"
+                className="btn-bespoke btn-surface text-xs px-2.5 py-1.5 font-medium flex items-center gap-1.5 text-canvas-muted hover:text-canvas-text transition"
+              >
+                <RotateCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+                <span>Force Refresh</span>
+              </button>
+
+              <button
+                onClick={handleCopyClipboard}
+                className="btn-bespoke btn-surface text-xs px-3.5 py-1.5 font-medium flex items-center gap-1.5"
+              >
+                <span>{copied ? 'Copied Summary! ✅' : 'Copy Formatted Summary'}</span>
+              </button>
+            </div>
           </div>
 
           <div className="space-y-3.5">
