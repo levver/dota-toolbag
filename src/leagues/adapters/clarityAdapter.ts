@@ -95,26 +95,34 @@ export const ClarityLeagueAdapter: LeagueAdapter = {
       }
     };
 
-    // Locate each team table header (Player in col c, MMR in col c+1 or c+2) -> row r+1 is Captain
-    for (let r = 0; r < sheetGrid.length - 1; r++) {
+    // Locate each captain: Row r-1 is the table header (Player / MMR), Row r is Player 1 (the Captain)
+    for (let r = 1; r < sheetGrid.length; r++) {
       for (let c = 0; c < sheetGrid[r].length; c++) {
-        const hText = (sheetGrid[r][c]?.text || '').trim().toLowerCase();
-        const isPlayerCol = hText === 'player' || hText === 'players' || hText === 'captain' || hText.startsWith('player');
+        const capCell = (sheetGrid[r][c]?.text || '').trim();
+        if (!capCell) continue;
 
-        if (!isPlayerCol) continue;
+        const cellAbove = (sheetGrid[r - 1]?.[c]?.text || '').trim().toLowerCase();
+        const cellAboveAdjacent = (sheetGrid[r - 1]?.[c + 1]?.text || '').trim().toLowerCase();
 
-        const next1 = (sheetGrid[r][c + 1]?.text || '').trim().toLowerCase();
-        const next2 = (sheetGrid[r][c + 2]?.text || '').trim().toLowerCase();
-        const hasMmrHeader = next1.includes('mmr') || next1.includes('rank') || next2.includes('mmr') || next1.includes('coins');
+        const isHeaderAbove =
+          cellAbove.includes('player') ||
+          cellAbove.includes('captain') ||
+          cellAbove.includes('name') ||
+          cellAbove.includes('roster') ||
+          cellAboveAdjacent.includes('mmr') ||
+          cellAboveAdjacent.includes('rank') ||
+          (r === 1);
 
-        if (hasMmrHeader) {
-          const capCell = (sheetGrid[r + 1][c]?.text || '').trim();
-          const capMmr1 = sheetGrid[r + 1]?.[c + 1]?.text || sheetGrid[r + 1]?.[c + 1]?.num;
-          const capMmr2 = sheetGrid[r + 1]?.[c + 2]?.text || sheetGrid[r + 1]?.[c + 2]?.num;
+        if (!isHeaderAbove) continue;
 
-          if (isValidMmr(capMmr1) || isValidMmr(capMmr2)) {
-            addCaptain(capCell);
-          }
+        const next1 = sheetGrid[r]?.[c + 1]?.text || sheetGrid[r]?.[c + 1]?.num;
+        const next2 = (sheetGrid[r]?.[c + 2]?.text || '').toLowerCase();
+
+        const hasMmr = isValidMmr(next1) || /^\d{3,5}$/.test(String(next1 || '').replace(/,/g, ''));
+        const hasDb = next2.includes('db') || next2.includes('dotabuff') || next2.includes('link') || next2.includes('http');
+
+        if (hasMmr || hasDb) {
+          addCaptain(capCell);
         }
       }
     }
