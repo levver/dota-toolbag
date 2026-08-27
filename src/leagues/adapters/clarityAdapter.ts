@@ -98,43 +98,14 @@ export const ClarityLeagueAdapter: LeagueAdapter = {
       }
     };
 
-    // Strategy 1: Scan the "Captain Name" / "Captain" column in the draft order table
-    for (let r = 0; r < sheetGrid.length; r++) {
-      for (let c = 0; c < sheetGrid[r].length; c++) {
-        const headerNorm = normalizeName(sheetGrid[r][c]?.text || '');
-        if (headerNorm.includes('captain')) {
-          for (let rowIdx = r + 1; rowIdx < sheetGrid.length; rowIdx++) {
-            const val = (sheetGrid[rowIdx]?.[c]?.text || '').trim();
-            if (!val || /^\d+$/.test(val)) continue;
-            const normVal = normalizeName(val);
-            if (
-              normVal.includes('average') ||
-              normVal.includes('total') ||
-              normVal.includes('divisionformat') ||
-              normVal.includes('challonge')
-            ) {
-              continue;
-            }
-            addCaptain(val);
-          }
-        }
-      }
-    }
-
-    // Strategy 2: Extract the row directly below each "Player" table header cell across all column blocks
+    // Extract exactly the Captain row immediately below each "Player" table header
     for (let r = 0; r < sheetGrid.length - 1; r++) {
       for (let c = 0; c < sheetGrid[r].length; c++) {
         const rawText = (sheetGrid[r][c]?.text || '').trim();
         const normHeader = normalizeName(rawText);
 
-        const isPlayerHeader =
-          normHeader === 'player' ||
-          normHeader === 'players' ||
-          normHeader === 'playername' ||
-          normHeader === 'playerc';
-
-        if (isPlayerHeader) {
-          const capCell = (sheetGrid[r + 1]?.[c]?.text || sheetGrid[r + 2]?.[c]?.text || '').trim();
+        if (normHeader === 'player' || normHeader === 'players') {
+          const capCell = (sheetGrid[r + 1]?.[c]?.text || '').trim();
           addCaptain(capCell);
         }
       }
