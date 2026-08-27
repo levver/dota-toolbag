@@ -28,7 +28,7 @@ export default {
             text: '#fda4af',
             accent: '#f43f5e'
           },
-          // 2. Blue (Timed Reminders)
+          // 2. Blue (Alerts)
           blue: {
             DEFAULT: '#2563eb',
             hover: '#1d4ed8',

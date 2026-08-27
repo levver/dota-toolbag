@@ -10,8 +10,8 @@ export const LOBBY_TYPE_PRO = 1;
 export const POSITIONS = ["Carry (Pos 1)", "Mid (Pos 2)", "Offlane (Pos 3)", "Soft Supp (Pos 4)", "Hard Supp (Pos 5)"];
 export const TOP_HEROES_COUNT = 10;
 
-// Cache TTL: 6 hours (in milliseconds)
-export const PROFILE_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+// Cache TTL: 12 hours (in milliseconds)
+export const PROFILE_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 
 export interface HeroInfo {
   name: string;

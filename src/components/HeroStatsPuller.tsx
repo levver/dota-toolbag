@@ -12,7 +12,6 @@ import { ToolLayout } from './ToolLayout';
 import { LineupInputs } from './stats/LineupInputs';
 import { PlayerCard } from './stats/PlayerCard';
 import { ClarityImportModal } from './stats/ClarityImportModal';
-import { RotateCw } from 'lucide-react';
 
 export const HeroStatsPuller: React.FC = () => {
   const [inputs, setInputs] = useState<string[]>(['', '', '', '', '']);
@@ -59,7 +58,7 @@ export const HeroStatsPuller: React.FC = () => {
       if (valid.length > 0) {
         fetchHeroMap().then((map) => {
           heroMapRef.current = map;
-          executeFetch(initialInputs, false);
+          executeFetch(initialInputs);
         });
       }
     }
@@ -87,7 +86,7 @@ export const HeroStatsPuller: React.FC = () => {
     setInputs(updated);
   };
 
-  const executeFetch = async (inputsToFetch: string[], forceRefresh = false) => {
+  const executeFetch = async (inputsToFetch: string[]) => {
     setIsLoading(true);
     setMessage(null);
     setResults([]);
@@ -103,7 +102,7 @@ export const HeroStatsPuller: React.FC = () => {
 
     try {
       const profiles = await Promise.all(
-        validIds.map((id) => fetchFullPlayerProfile(id, heroMapRef.current, forceRefresh))
+        validIds.map((id) => fetchFullPlayerProfile(id, heroMapRef.current))
       );
       setResults(profiles);
       setMessage({
@@ -121,11 +120,7 @@ export const HeroStatsPuller: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     updateUrlParams(inputs);
-    executeFetch(inputs, false);
-  };
-
-  const handleForceRefresh = () => {
-    executeFetch(inputs, true);
+    executeFetch(inputs);
   };
 
   const handleClear = () => {
@@ -151,7 +146,7 @@ export const HeroStatsPuller: React.FC = () => {
   const handleApplyClarityLineup = (orderedIds: string[]) => {
     setInputs(orderedIds);
     updateUrlParams(orderedIds);
-    executeFetch(orderedIds, false);
+    executeFetch(orderedIds);
   };
 
   return (
@@ -177,30 +172,17 @@ export const HeroStatsPuller: React.FC = () => {
       {/* Results Section */}
       {results.length > 0 && (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-canvas-muted uppercase tracking-wider">
               Profile Analysis ({results.length})
             </span>
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleForceRefresh}
-                disabled={isLoading}
-                title="Bypass local cache and query fresh data from OpenDota"
-                className="btn-bespoke btn-surface text-xs px-2.5 py-1.5 font-medium flex items-center gap-1.5 text-canvas-muted hover:text-canvas-text transition"
-              >
-                <RotateCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-                <span>Force Refresh</span>
-              </button>
-
-              <button
-                onClick={handleCopyClipboard}
-                className="btn-bespoke btn-surface text-xs px-3.5 py-1.5 font-medium flex items-center gap-1.5"
-              >
-                <span>{copied ? 'Copied Summary! ✅' : 'Copy Formatted Summary'}</span>
-              </button>
-            </div>
+            <button
+              onClick={handleCopyClipboard}
+              className="btn-bespoke btn-surface text-xs px-3.5 py-1.5 font-medium flex items-center gap-1.5"
+            >
+              <span>{copied ? 'Copied' : 'Copy Summary'}</span>
+            </button>
           </div>
 
           <div className="space-y-3.5">
