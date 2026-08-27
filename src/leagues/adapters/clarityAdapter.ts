@@ -36,22 +36,6 @@ export const clarityDefinition: LeagueDefinition = {
 
 const captainsCache = new Map<string, string[]>();
 
-function getCellMmr(cell: CellValue | undefined): number | null {
-  if (!cell) return null;
-  if (typeof cell.num === 'number' && isValidMmr(cell.num)) {
-    return cell.num;
-  }
-  if (cell.text && isValidMmr(cell.text)) {
-    return parseInt(cell.text.replace(/,/g, '').trim(), 10);
-  }
-  return null;
-}
-
-function hasMmrAtCol(row: CellValue[] | undefined, col: number): boolean {
-  if (!row || col >= row.length) return false;
-  return getCellMmr(row[col]) !== null;
-}
-
 export const ClarityLeagueAdapter: LeagueAdapter = {
   id: 'clarity',
   definition: clarityDefinition,
@@ -111,46 +95,24 @@ export const ClarityLeagueAdapter: LeagueAdapter = {
       }
     };
 
-    // 1. Primary Discovery: Locate team block by MMR sequence (row r has MMR, row r+1 has MMR, row r-1 does NOT have MMR)
+    // Locate each team table header (Player in col c, MMR in col c+1 or c+2) -> row r+1 is Captain
     for (let r = 0; r < sheetGrid.length - 1; r++) {
       for (let c = 0; c < sheetGrid[r].length; c++) {
-        const p1Name = (sheetGrid[r][c]?.text || '').trim();
+        const hText = (sheetGrid[r][c]?.text || '').trim().toLowerCase();
+        const isPlayerCol = hText === 'player' || hText === 'players' || hText === 'captain' || hText.startsWith('player');
 
-        // Check if MMR is in col c+1
-        const mmr1 = hasMmrAtCol(sheetGrid[r], c + 1);
-        const mmr2 = hasMmrAtCol(sheetGrid[r + 1], c + 1);
-        const mmrAbove = r > 0 ? hasMmrAtCol(sheetGrid[r - 1], c + 1) : false;
+        if (!isPlayerCol) continue;
 
-        if (mmr1 && mmr2 && !mmrAbove) {
-          addCaptain(p1Name);
-        }
+        const next1 = (sheetGrid[r][c + 1]?.text || '').trim().toLowerCase();
+        const next2 = (sheetGrid[r][c + 2]?.text || '').trim().toLowerCase();
+        const hasMmrHeader = next1.includes('mmr') || next1.includes('rank') || next2.includes('mmr') || next1.includes('coins');
 
-        // Check if MMR is in col c+2 (e.g. role/rank in c+1)
-        const mmr1_2 = hasMmrAtCol(sheetGrid[r], c + 2);
-        const mmr2_2 = hasMmrAtCol(sheetGrid[r + 1], c + 2);
-        const mmrAbove_2 = r > 0 ? hasMmrAtCol(sheetGrid[r - 1], c + 2) : false;
+        if (hasMmrHeader) {
+          const capCell = (sheetGrid[r + 1][c]?.text || '').trim();
+          const capMmr1 = sheetGrid[r + 1]?.[c + 1]?.text || sheetGrid[r + 1]?.[c + 1]?.num;
+          const capMmr2 = sheetGrid[r + 1]?.[c + 2]?.text || sheetGrid[r + 1]?.[c + 2]?.num;
 
-        if (mmr1_2 && mmr2_2 && !mmrAbove_2) {
-          addCaptain(p1Name);
-        }
-      }
-    }
-
-    // 2. Secondary Discovery: Header-based matching fallback
-    if (captains.length === 0) {
-      for (let r = 0; r < sheetGrid.length - 1; r++) {
-        for (let c = 0; c < sheetGrid[r].length; c++) {
-          const headerCell = (sheetGrid[r][c]?.text || '').trim().toLowerCase();
-          const nextHeader1 = (sheetGrid[r][c + 1]?.text || '').trim().toLowerCase();
-          const nextHeader2 = (sheetGrid[r][c + 2]?.text || '').trim().toLowerCase();
-
-          const isPlayerHeader =
-            headerCell.includes('player') || headerCell.includes('captain') || headerCell.includes('name');
-          const isMmrHeader =
-            nextHeader1.includes('mmr') || nextHeader1.includes('rank') || nextHeader2.includes('mmr');
-
-          if (isPlayerHeader && isMmrHeader) {
-            const capCell = (sheetGrid[r + 1][c]?.text || '').trim();
+          if (isValidMmr(capMmr1) || isValidMmr(capMmr2)) {
             addCaptain(capCell);
           }
         }
