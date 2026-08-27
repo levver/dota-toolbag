@@ -18,7 +18,7 @@ export interface CellValue {
   num?: number;
 }
 
-export const MIN_VALID_MMR = 400;
+export const MIN_VALID_MMR = 1;
 export const MAX_VALID_MMR = 16000;
 export const MIN_ACCOUNT_ID = 20000;
 export const TEAM_SIZE = 5;
