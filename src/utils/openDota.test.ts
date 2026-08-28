@@ -4,11 +4,19 @@ import {
   getRankIconUrl,
   getWinrateColor,
   generateTextSummary,
-  resolveTeamDraftUrl
+  resolveTeamDraftUrl,
+  normalizeAssetUrl
 } from './openDota';
 import { PlayerProfileResult } from '../types';
 
 describe('openDota utility tests', () => {
+  describe('normalizeAssetUrl', () => {
+    test('keeps remote or data URLs intact', () => {
+      expect(normalizeAssetUrl('https://example.com/test.png')).toBe('https://example.com/test.png');
+      expect(normalizeAssetUrl('data:image/png;base64,...')).toBe('data:image/png;base64,...');
+      expect(normalizeAssetUrl('')).toBe('');
+    });
+  });
   describe('parseInputForAccountId', () => {
     test('parses pure numeric account IDs', () => {
       expect(parseInputForAccountId('131333617')).toBe('131333617');

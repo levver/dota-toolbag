@@ -12,6 +12,7 @@ export type AlertSoundType =
 export interface HeroStat {
   name: string;
   iconUrl: string;
+  remoteIconUrl?: string;
   games: number;
   winrate: string;
   winCount?: number;

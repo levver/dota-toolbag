@@ -1,18 +1,9 @@
-import React from 'react';
+import { HeroStatsSection } from '../../types';
 import { getWinrateColor } from '../../utils/openDota';
 
 interface StatColumnProps {
   title: string;
-  data: {
-    success: boolean;
-    message?: string;
-    heroes?: Array<{
-      name: string;
-      iconUrl: string;
-      games: number;
-      winrate: string;
-    }>;
-  };
+  data: HeroStatsSection;
 }
 
 export const StatColumn: React.FC<StatColumnProps> = ({ title, data }) => {
@@ -41,10 +32,12 @@ export const StatColumn: React.FC<StatColumnProps> = ({ title, data }) => {
                     alt={hero.name}
                     className="w-5 h-5 rounded-bespoke-sm object-cover border border-canvas-borderLight flex-shrink-0"
                     onError={(e) => {
-                      (e.target as HTMLElement).setAttribute(
-                        'src',
-                        'https://placehold.co/20x20/27272a/FFFFFF?text=?'
-                      );
+                      const target = e.target as HTMLImageElement;
+                      if (hero.remoteIconUrl && target.src !== hero.remoteIconUrl) {
+                        target.src = hero.remoteIconUrl;
+                      } else {
+                        target.src = 'https://placehold.co/20x20/27272a/FFFFFF?text=?';
+                      }
                     }}
                   />
                   <span className="text-[11px] font-medium truncate" title={hero.name}>

@@ -15,6 +15,21 @@ export const TOP_HEROES_COUNT = 10;
 // Cache TTL: 12 hours (in milliseconds)
 export const PROFILE_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 
+export function normalizeAssetUrl(url: string | undefined): string {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return url;
+  }
+  const base = import.meta.env?.BASE_URL || '/';
+  if (base !== '/' && url.startsWith('/assets/')) {
+    return `${base}${url.slice(1)}`;
+  }
+  if (base !== '/' && url.startsWith('/logo.png')) {
+    return `${base}logo.png`;
+  }
+  return url;
+}
+
 export interface HeroInfo {
   name: string;
   iconUrl: string;
@@ -123,8 +138,16 @@ export async function fetchHeroMap(): Promise<Record<number, HeroInfo>> {
     return heroMapCache;
   }
 
-  const cached = storage.get<Record<number, HeroInfo> | null>('dota_hero_map_cache', null);
+  // Clear legacy unversioned cache
+  storage.remove('dota_hero_map_cache');
+
+  const cached = storage.get<Record<number, HeroInfo> | null>('dota_hero_map_v2', null);
   if (cached && Object.keys(cached).length > 100) {
+    for (const id in cached) {
+      if (cached[id]) {
+        cached[id].iconUrl = normalizeAssetUrl(cached[id].iconUrl);
+      }
+    }
     heroMapCache = cached;
     return cached;
   }
@@ -155,7 +178,7 @@ export async function fetchHeroMap(): Promise<Record<number, HeroInfo>> {
   });
 
   heroMapCache = map;
-  storage.set('dota_hero_map_cache', map);
+  storage.set('dota_hero_map_v2', map);
   return map;
 }
 
@@ -288,6 +311,7 @@ export async function fetchHeroStats(
         return {
           name: heroInfo ? heroInfo.name : `Hero #${heroId}`,
           iconUrl: heroInfo ? heroInfo.iconUrl : `${LOCAL_HERO_BASE_URL}unknown.png`,
+          remoteIconUrl: heroInfo ? heroInfo.remoteIconUrl : undefined,
           games,
           winrate,
           winCount: wins
@@ -311,7 +335,8 @@ export async function fetchFullPlayerProfile(
   forceRefresh = false,
   maxRetries = 3
 ): Promise<PlayerProfileResult> {
-  const cacheKey = `dota_profile_cache_${accountId}`;
+  const cacheKey = `dota_profile_cache_v2_${accountId}`;
+  storage.remove(`dota_profile_cache_${accountId}`);
 
   // 1. Check local cache if not forcing refresh
   if (!forceRefresh) {
@@ -319,6 +344,18 @@ export async function fetchFullPlayerProfile(
     if (cached && cached.data && Date.now() - cached.timestamp < PROFILE_CACHE_TTL_MS) {
       // Return cached profile if it had successful stats
       if (cached.data.allTime?.success || cached.data.monthly?.success) {
+        if (cached.data.rankUrl?.url) {
+          cached.data.rankUrl.url = normalizeAssetUrl(cached.data.rankUrl.url);
+        }
+        const sections: Array<'allTime' | 'monthly' | 'pro'> = ['allTime', 'monthly', 'pro'];
+        sections.forEach((sec) => {
+          const section = cached.data[sec];
+          if (section?.heroes) {
+            section.heroes.forEach((h) => {
+              h.iconUrl = normalizeAssetUrl(h.iconUrl);
+            });
+          }
+        });
         return cached.data;
       }
     }
