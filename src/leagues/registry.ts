@@ -14,7 +14,7 @@ export const rd2lDefinition: LeagueDefinition = {
   ],
   defaultDivision: 'sun',
   isPlaceholder: true,
-  logoUrl: '/assets/leagues/rd2l.svg',
+  logoUrl: `${import.meta.env.BASE_URL}assets/leagues/rd2l.svg`,
   accentColor: 'red'
 };
 

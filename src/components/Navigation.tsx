@@ -24,7 +24,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             onClick={() => setActiveTab(TOOLS[0].id)}
           >
             <img
-              src="/logo.png"
+              src={`${import.meta.env.BASE_URL}logo.png`}
               alt="levver's toolbag"
               className="w-6 h-6 rounded-bespoke object-contain"
             />
