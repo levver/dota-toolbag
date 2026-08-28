@@ -1,10 +1,12 @@
 import { HeroStat, HeroStatsSection, PlayerProfileResult } from '../types';
 import { storage } from './storage';
 
+const BASE_URL = import.meta.env?.BASE_URL || '/';
+
 export const OPENDOTA_BASE_URL = 'https://api.opendota.com/api';
-export const LOCAL_HERO_BASE_URL = '/assets/heroes/';
+export const LOCAL_HERO_BASE_URL = `${BASE_URL}assets/heroes/`;
 export const REMOTE_HERO_BASE_URL = 'https://cdn.steamstatic.com/apps/dota2/images/dota_react/heroes/';
-export const LOCAL_RANK_BASE_URL = '/assets/ranks/';
+export const LOCAL_RANK_BASE_URL = `${BASE_URL}assets/ranks/`;
 export const REMOTE_RANK_BASE_URL = 'https://www.opendota.com/assets/images/dota2/rank_icons/';
 export const LOBBY_TYPE_PRO = 1;
 export const POSITIONS = ["Carry (Pos 1)", "Mid (Pos 2)", "Offlane (Pos 3)", "Soft Supp (Pos 4)", "Hard Supp (Pos 5)"];
@@ -136,7 +138,7 @@ export async function fetchHeroMap(): Promise<Record<number, HeroInfo>> {
   const map: Record<number, HeroInfo> = {};
 
   data.forEach((hero) => {
-    let iconUrl = '/assets/heroes/unknown.png';
+    let iconUrl = `${LOCAL_HERO_BASE_URL}unknown.png`;
     let remoteIconUrl = 'https://placehold.co/32x32/334155/FFFFFF?text=?';
 
     if (hero.name) {
@@ -285,7 +287,7 @@ export async function fetchHeroStats(
 
         return {
           name: heroInfo ? heroInfo.name : `Hero #${heroId}`,
-          iconUrl: heroInfo ? heroInfo.iconUrl : '/assets/heroes/unknown.png',
+          iconUrl: heroInfo ? heroInfo.iconUrl : `${LOCAL_HERO_BASE_URL}unknown.png`,
           games,
           winrate,
           winCount: wins

@@ -30,7 +30,7 @@ export const clarityDefinition: LeagueDefinition = {
   defaultDivision: 1,
   requiresSheetUrl: true,
   defaultSheetUrl: '',
-  logoUrl: '/assets/leagues/clarity.png',
+  logoUrl: `${import.meta.env.BASE_URL}assets/leagues/clarity.png`,
   accentColor: 'blue'
 };
 
